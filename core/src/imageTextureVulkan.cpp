@@ -94,6 +94,14 @@ void ImageTextureVulkan::attach(const std::vector<const GpuImageHandle*>& images
     }
 }
 
+void ImageTextureVulkan::attach(VkImage image, VkImageView imageView, VkImageLayout imageLayout) {
+    _backend = Backend::Backend_GPU;
+    SNN_ASSERT(1 == _dims[3]);
+
+    _vkImages.resize(1);
+    _vkImages[0] = std::make_shared<uvkc::vulkan::Image>(_device->getLogicalDevice(), image, imageView, imageLayout, _device->getSymbols());
+}
+
 std::shared_ptr<uvkc::vulkan::Image> ImageTextureVulkan::vkImage(size_t index) {
     SNN_ASSERT(_vkImages.size() > index);
     _backend = Backend::Backend_GPU;

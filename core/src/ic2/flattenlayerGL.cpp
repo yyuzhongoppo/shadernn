@@ -26,15 +26,15 @@ using namespace snn::dp;
 
 static constexpr const char* FLATTEN_CS_ASSET_NAME = "shaders/shadertemplate_cs_flattenlayer.glsl";
 
-InferencePassesSptr snn::dp::FlattenLayerGl::createFS(const LayerGenOptions&) const {
-    InferencePassesSptr ret(new InferencePassesGl());
+InferencePassesUptr snn::dp::FlattenLayerGl::createFS(const LayerGenOptions&) const {
+    InferencePassesUptr ret(new InferencePassesGl());
     SNN_LOGW("No FS implementation for Flatten layer !");
     return ret;
 }
 
-InferencePassesSptr snn::dp::FlattenLayerGl::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr snn::dp::FlattenLayerGl::createCS(const LayerGenOptions& options) const {
     (void) options;
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     uint32_t outputWidth  = 0;
     uint32_t outputHeight = 0;

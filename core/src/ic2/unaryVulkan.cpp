@@ -27,10 +27,10 @@ using namespace snn::dp;
 static constexpr const char* UNARY_VK_ASSET_NAME = "shaders/shadertemplate_vk_unary.spv";
 static constexpr const char* UNARY_VK_FP16_ASSET_NAME = "shaders/shadertemplate_vk_unary_fp16.spv";
 
-InferencePassesSptr UnaryLayerVulkan::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr UnaryLayerVulkan::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesVulkan());
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);
@@ -63,7 +63,7 @@ InferencePassesSptr UnaryLayerVulkan::createCS(const LayerGenOptions& options) c
 
     pass.inputs  = {{"u_Input", 0}};
 
-    std::vector<uchar> bytes;
+    std::vector<uint8_t> bytes;
     if (_desc.preferHp) {
         bytes = snn::loadEmbeddedAsset(UNARY_VK_FP16_ASSET_NAME);
     } else {

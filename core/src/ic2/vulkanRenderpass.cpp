@@ -26,7 +26,7 @@
 #include <vector>
 #include <variant>
 
-std::unique_ptr<uvkc::vulkan::Buffer> createVkBuffer(uvkc::vulkan::Device* device, void* srcBuffer, uint32_t bufSize) {
+std::unique_ptr<uvkc::vulkan::Buffer> createVkBuffer(uvkc::vulkan::Device* device, const void* srcBuffer, uint32_t bufSize) {
     uint32_t allocSize = bufSize;
     if ((bufSize%16) != 0) {
         allocSize = ROUND_UP(bufSize, 16); //Align to vec4 float
@@ -100,9 +100,9 @@ std::shared_ptr<uvkc::vulkan::Image> createVkImage(uvkc::vulkan::Device* device,
 
 // -----------------------------------------------------------------------------
 //
-snn::VulkanRenderPass::VulkanRenderPass(GpuContext* context_, const snn::VulkanRenderPass::CreationParameters& cp)
+snn::VulkanRenderPass::VulkanRenderPass(GpuContext* context_, snn::VulkanRenderPass::CreationParameters&& cp)
     : context(context_)
-    , _cp(cp)
+    , _cp(std::move(cp))
 {
     SNN_LOGV("this: %p, cp.pass.source: %s", this, _cp.pass.source.c_str());
     for (size_t i = 0; i < _cp.texInputs.size(); ++i) {
@@ -154,7 +154,7 @@ snn::VulkanRenderPass::VulkanRenderPass(GpuContext* context_, const snn::VulkanR
     }
 
     auto runtimeUniforms = _cp.pass.runtimeUniforms;
-    for (auto& [name, value] : cp.pass.runtimeUniforms) {
+    for (auto& [name, value] : _cp.pass.runtimeUniforms) {
         auto uniformBuffer = _cp.pass.runtimeData;
         uint32_t offset = value.first;
         uint32_t len = value.second;
@@ -175,6 +175,7 @@ snn::VulkanRenderPass::VulkanRenderPass(GpuContext* context_, const snn::VulkanR
             idx++;
         }
     }
+    _cp.pass.releaseResources();
 }
 
 
@@ -297,7 +298,7 @@ bool snn::VulkanRenderPass::debugPassWeights(const std::string& folderName, int 
     for (auto iter = _cp.pass.weightBuffers.begin(); iter != _cp.pass.weightBuffers.end(); ++iter, ++idx) {
         auto dims =  _cp.pass.weightDims[iter->first];
         auto format = _cp.pass.weightFormats[iter->first];
-        ImageTextureVulkan tex(context, {dims[0], dims[1], dims[2]}, format, "weights");
+        ImageTextureVulkan tex(context, {dims[0], dims[1], dims[2], 1U}, format, nullptr, "weights");
         tex.attach({_weightImages[idx]});
         auto dumpTxtFileName = formatString("%s/%s_weights_%s.txt", folderName.c_str(), _cp.name.c_str(), iter->first.c_str());
         if (FILE* fDumpTxt = createFile(dumpTxtFileName.c_str())) {

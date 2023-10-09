@@ -28,10 +28,10 @@ using namespace snn::dp;
 static constexpr const char* PAD_VK_ASSET_NAME = "shaders/shadertemplate_vk_pad.spv";
 static constexpr const char* PAD_VK_FP16_ASSET_NAME = "shaders/shadertemplate_vk_pad_fp16.spv";
 
-InferencePassesSptr PadLayerVulkan::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr PadLayerVulkan::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesVulkan());
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);
@@ -86,7 +86,7 @@ InferencePassesSptr PadLayerVulkan::createCS(const LayerGenOptions& options) con
 
     pass.inputs  = {{"uInput", 0}};
 
-    std::vector<uchar> bytes;
+    std::vector<uint8_t> bytes;
     if (_desc.preferHp) {
         bytes = snn::loadEmbeddedAsset(PAD_VK_FP16_ASSET_NAME);
         pass.source = PAD_VK_FP16_ASSET_NAME;

@@ -37,7 +37,9 @@ struct PadDesc : GenericConvDesc {
 // This is a base class to generates a shader for padding
 class PadLayer : public GenericConvolutionLayer {
 public:
-    PadLayer(PadDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {}
+    PadLayer(PadDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {
+        _pDesc = &_desc;
+    }
     virtual ~PadLayer() = default;
     virtual InferenceGraph::Transform getOutputScaleDimAdjustment() const override;
 

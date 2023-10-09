@@ -14,7 +14,6 @@
  */
 #include "pch.h"
 #include "glUtils.h"
-#include <opencv2/opencv.hpp>
 #include <stb_image.h>
 #include <stb_image_write.h>
 #include <sstream>
@@ -151,13 +150,17 @@ static void initializeOpenGLDebugRuntime() {
                 break;
             }
 
+#if 0
             std::string s = formatString("(id=[%d] source=[%s] type=[%s] severity=[%s]): %s\n%s", id, source2String(source), type2String(type),
                                          severity2String(severity), message, dumpCallStack().c_str());
+#else
+            std::string s = formatString("(id=[%d] source=[%s] type=[%s] severity=[%s]): %s\n", id, source2String(source), type2String(type),
+                                         severity2String(severity), message);
+#endif
             if (error_) {
                 SNN_LOGE("[GL ERROR] %s", s.c_str());
             } else if (warning) {
-                // SNN_LOGW("[GL WARNING] %s", s.c_str());
-                (void) warning; // Disable it for debug
+                SNN_LOGW("[GL WARNING] %s", s.c_str());
             } else if (info) {
                 SNN_LOGI("[GL INFO] %s", s.c_str());
             }
@@ -484,6 +487,55 @@ void gl::TextureObject::setPixels(size_t layer, size_t level, size_t x, size_t y
 
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
     //GLCHK(;);
+}
+
+bool gl::SimpleGlslProgram::loadVsPs(const char* vscode, const char* pscode) {
+#ifdef PROFILING
+    PROFILE_TIME(loadVsPs, "Build render pipeline program")
+#endif
+#ifdef _DEBUG
+    if (vscode) {
+        vsSource = vscode;
+    }
+    if (pscode) {
+        psSource = pscode;
+    }
+#endif
+    cleanup();
+    AutoShader vs;
+    AutoShader ps;
+    {
+#ifdef PROFILING
+        PROFILE_TIME(loadShaderFromString, "Load shaders")
+#endif
+        vs = loadShaderFromString(vscode, 0, GL_VERTEX_SHADER, name.c_str());
+        ps = loadShaderFromString(pscode, 0, GL_FRAGMENT_SHADER, name.c_str());
+    }
+    if ((vscode && !vs) || (pscode && !ps)) {
+        return false;
+    }
+    {
+#ifdef PROFILING
+        PROFILE_TIME(linkProgram, "Linking program")
+#endif
+        _program = linkProgram({vs, ps}, name.c_str());
+    }
+    return _program != 0;
+}
+
+bool gl::SimpleGlslProgram::loadCs(const char* code) {
+#ifdef _DEBUG
+    if (code) {
+        csSource = code;
+    }
+#endif
+    cleanup();
+    AutoShader cs = loadShaderFromString(code, 0, GL_COMPUTE_SHADER, name.c_str());
+    if (!cs) {
+        return false;
+    }
+    _program = linkProgram({cs}, name.c_str());
+    return _program != 0;
 }
 
 void readTexture(int buf_size, GLuint textureId) {

@@ -27,7 +27,7 @@ using namespace snn::dp;
 static constexpr const char* MAXPOOLING2D_FS_ASSET_NAME = "shaders/shadertemplate_fs_maxpooling2d.glsl";
 static constexpr const char* MAXPOOLING2D_CS_ASSET_NAME = "shaders/3rdparty/shadertemplate_cs_maxpool2d.glsl";
 
-InferencePassesSptr MaxPooling2DLayerGl::createFS(const GenericModelLayer::LayerGenOptions& options) const {
+InferencePassesUptr MaxPooling2DLayerGl::createFS(const GenericModelLayer::LayerGenOptions& options) const {
     std::string shaderTemplateFilePath = MAXPOOLING2D_FS_ASSET_NAME;
     std::string fsTemplateCode         = loadShader(shaderTemplateFilePath.c_str());
 
@@ -58,7 +58,7 @@ InferencePassesSptr MaxPooling2DLayerGl::createFS(const GenericModelLayer::Layer
     this->buildCalcDefLogic(maxPoolLogicStream);
     auto maxPoolLogic = maxPoolLogicStream.str();
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(numShaderPasses);
 
@@ -322,9 +322,9 @@ void MaxPooling2DLayerGl::buildCalcDefLogic(std::ostream& stream) const {
     }
 }
 
-InferencePassesSptr MaxPooling2DLayerGl::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr MaxPooling2DLayerGl::createCS(const LayerGenOptions& options) const {
     (void) options;
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(1);

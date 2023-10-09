@@ -31,15 +31,15 @@ public:
     virtual ~SeparableConv2DLayerGl() = default;
 
 protected:
-    InferencePassesSptr createFS(const LayerGenOptions&) const override;
-    InferencePassesSptr createCS(const LayerGenOptions&) const override;
+    InferencePassesUptr createFS(const LayerGenOptions&) const override;
+    InferencePassesUptr createCS(const LayerGenOptions&) const override;
 
 private:
     mutable snn::FixedSizeArray<gl::TextureObject> weightTextures;
     mutable snn::FixedSizeArray<gl::BufferObject<GL_UNIFORM_BUFFER>> weightUniformBuffers;
     mutable snn::FixedSizeArray<gl::BufferObject<GL_SHADER_STORAGE_BUFFER>> weightSSBOBuffers;
     snn::FixedSizeArray<gl::SamplerObject> weightSamplers;
-    std::vector<double> biases;
+    std::vector<float> biases;
     mutable gl::TextureObject kernelTexture;
 
     void setTextureWeights() const;

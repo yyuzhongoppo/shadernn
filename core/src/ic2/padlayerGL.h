@@ -28,8 +28,8 @@ public:
     virtual ~PadLayerGl() = default;
 
 protected:
-    InferencePassesSptr createFS(const LayerGenOptions&) const override;
-    InferencePassesSptr createCS(const LayerGenOptions&) const override;
+    InferencePassesUptr createFS(const LayerGenOptions&) const override;
+    InferencePassesUptr createCS(const LayerGenOptions&) const override;
 
 private:
     // Adds predefine to given stringstream.

@@ -47,6 +47,9 @@ endif()
 if (DEFINED ENV{SNN_DUMP_RESULTS_TXT})
     add_definitions( -DDUMP_RESULTS_TXT )
 endif()
+if (DEFINED ENV{SNN_FS_PREFER_WEIGHTS_IN_CONSTANTS})
+    add_definitions( -DFS_PREFER_WEIGHTS_IN_CONSTANTS )
+endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
@@ -67,6 +70,8 @@ set(sources
     src/imageTexture.cpp
     src/contextFactory.cpp
     src/imageTextureFactory.cpp
+    src/conv2dSupport.cpp
+    src/mdArray.cpp
     src/ic2/conv2d.cpp
     src/ic2/core.cpp
     src/ic2/layerFactory.cpp
@@ -258,17 +263,12 @@ endif()
 
 if (DEFINED ANDROID_ABI)
     set(opencv-lib-dir ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/opencv/android/lib/${ANDROID_ABI})
-    target_include_directories(snn_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/opencv/android/include/)
-    target_link_libraries(snn_core PUBLIC android log libyuv-static
-                                    ${opencv-lib-dir}/libopencv_core.so 
-                                    ${opencv-lib-dir}/libopencv_imgproc.so
-                                    ${opencv-lib-dir}/libopencv_video.so)
+    target_link_libraries(snn_core PUBLIC ${opencv-lib-dir}/libopencv_core.so)
+    target_link_libraries(snn_core PUBLIC android log yuv dl)
     if (DEFINED SUPPORT_GL)
         target_link_libraries(snn_core PUBLIC EGL GLESv2 GLESv3)
     endif()
 else()
-    find_package(OpenCV 4 REQUIRED)
-    
     # Assets
     include("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cmrc/CMakeRC.cmake")
     set(shader-dir data/assets/shaders)
@@ -366,7 +366,6 @@ else()
     cmrc_add_resource_library(snn-assets ALIAS snn::rc NAMESPACE snn ${assets})
     target_compile_options(snn-assets PRIVATE -fPIC)
     
-    target_include_directories(snn_core PUBLIC ${OpenCV_INCLUDE_DIRS})
     target_link_libraries(snn_core PUBLIC snn-assets stdc++fs yuv jpeg)
 endif()
 

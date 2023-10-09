@@ -31,8 +31,8 @@ private:
     bool generateUpSampling2DGLSamplingCode(int& idxStartPlane, int nOutputChannels, std::string& uniformsDeclaration, std::string& calculation,
                                             const bool& compute) const;
 protected:
-    InferencePassesSptr createFS(const LayerGenOptions&) const override;
-    InferencePassesSptr createCS(const LayerGenOptions&) const override;
+    InferencePassesUptr createFS(const LayerGenOptions&) const override;
+    InferencePassesUptr createCS(const LayerGenOptions&) const override;
 };
 
 } // namespace dp

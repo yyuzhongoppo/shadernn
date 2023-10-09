@@ -30,10 +30,10 @@ using namespace snn::dp;
 static constexpr const char* DENSE_VK_ASSET_NAME = "shaders/shadertemplate_vk_dense.spv";
 static constexpr const char* DENSE_VK_FP16_ASSET_NAME = "shaders/shadertemplate_vk_dense_fp16.spv";
 
-InferencePassesSptr DenseLayerVulkan::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr DenseLayerVulkan::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesVulkan());
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);
@@ -68,30 +68,21 @@ InferencePassesSptr DenseLayerVulkan::createCS(const LayerGenOptions& options) c
         activation = 6;
     }
 
-    pass._vecWeights.resize(inputWidth * outputWidth);
-    float* destWeight = (float*) pass._vecWeights.data();
+    pass._vecWeights.resize(inputWidth * outputWidth, 0.0f);
 
     unsigned int width = _desc.weights[0].size();
     int kIndex = 0;
     for (size_t i = 0; i < _desc.weights.size(); i++) {
         for (size_t j = 0; j < width; j++) {
-            *(destWeight + kIndex) = _desc.weights[i][j];
+            SNN_ASSERT(kIndex < inputWidth * outputWidth);
+            pass._vecWeights[kIndex] = _desc.weights[i][j];
             kIndex++;
         }
     }
 
-    pass._vecBias.resize(outputWidth);
-    float* destBias = (float*) pass._vecBias.data();
+    pass.objectBuffers["3"] = {pass._vecWeights.data(), pass._vecWeights.size()};
 
-    for (size_t i = 0; i < _desc.biases.size(); i++) {
-        *(destBias + i) = _desc.biases[i];
-    }
-
-    std::pair<std::string, std::vector<float>> weightBuffer("3", pass._vecWeights);
-    pass.objectBuffers.insert(weightBuffer);
-
-    std::pair<std::string, std::vector<float>> biasBuffer("4", pass._vecBias);
-    pass.objectBuffers.insert(biasBuffer);
+    pass.objectBuffers["4"] = {_desc.biases.data(), _desc.biases.size()};
 
     std::vector<uint32_t> uniform(6);
     uniform[0] = inputWidth;
@@ -105,7 +96,7 @@ InferencePassesSptr DenseLayerVulkan::createCS(const LayerGenOptions& options) c
 
     pass.inputs  = {{"uInput", 0}};
 
-    std::vector<uchar> bytes;
+    std::vector<uint8_t> bytes;
     if (_desc.preferHp) {
         bytes = snn::loadEmbeddedAsset(DENSE_VK_FP16_ASSET_NAME);
         pass.source = DENSE_VK_FP16_ASSET_NAME;

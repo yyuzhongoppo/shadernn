@@ -138,9 +138,6 @@ static bool getBoundingBox(const float* data, float scaleX, float scaleY, int32_
                 float maxClsProb = 1.f / ((1.f + exp(-data[index + 4]) * (1.f + exp(-maxClsLogit))));
 
                 if (maxClsProb > boxConfidence) {
-                    // scaleXY in YOLO v4
-                    // float cx = (gridX + scaleSigmoidStd(data[index + 0], scaleXY)) / grid_w;
-                    // float cy = (gridY + scaleSigmoidStd(data[index + 1], scaleXY)) / grid_h;
                     float cx = (gridX + sigmoidStd(data[index + 0])) / gridWidth;
                     float cy = (gridY + sigmoidStd(data[index + 1])) / gridHeight;
 
@@ -150,7 +147,7 @@ static bool getBoundingBox(const float* data, float scaleX, float scaleY, int32_
                     float x_ = cx - w_ / 2;
                     float y_ = cy - h_ / 2;
 
-                    printf("Index %d:%d:%d, score: %f coord: %f, %f, %f, %f\n", gridY, gridX, gridC, maxClsProb, x_, y_, x_ + w_, y_ + h_);
+                    SNN_LOGI("Index %d:%d:%d, score: %f coord: %f, %f, %f, %f", gridY, gridX, gridC, maxClsProb, x_, y_, x_ + w_, y_ + h_);
 
                     bboxList.push_back(BoundingBox(classId, "", maxClsProb, x_, y_, w_, h_));
                 }
@@ -183,7 +180,6 @@ void snn::dp::YOLOLayer::computeImageTexture(snn::ImageTextureArray& inputTex, s
     float iouThreshold        = 0.45f;
     std::vector<BoundingBox> bboxList;
     int index = 0;
-    // snn::ImageTextureGLArrayAccessor inputTexGL = inputTex;
     for (const auto& gridScale : YOLOGridScale) {
         int32_t gridWidth  = inputWidth / gridScale;
         int32_t gridHeight = inputHeight / gridScale;

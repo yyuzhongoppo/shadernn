@@ -28,9 +28,9 @@ using namespace snn::dp;
 static constexpr const char* ADD_FS_ASSET_NAME = "shaders/shadertemplate_fs_add_RGBA.glsl";
 static constexpr const char* ADD_CS_ASSET_NAME = "shaders/3rdparty/shadertemplate_cs_add.glsl";
 
-InferencePassesSptr AddLayerGl::createFS(const GenericModelLayer::LayerGenOptions& options) const {
+InferencePassesUptr AddLayerGl::createFS(const GenericModelLayer::LayerGenOptions& options) const {
     (void) options;
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     int channelsPerPass = 4;
     switch (_desc.mrtMode) {
@@ -137,10 +137,10 @@ InferencePassesSptr AddLayerGl::createFS(const GenericModelLayer::LayerGenOption
     return ret;
 }
 
-InferencePassesSptr AddLayerGl::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr AddLayerGl::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(1);

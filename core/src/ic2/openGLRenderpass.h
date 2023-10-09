@@ -32,7 +32,7 @@ namespace snn {
 // This classes implements actions, performed during a render pass.
 class OpenGLRenderPass : public RenderPass {
 public:
-    OpenGLRenderPass() = default;
+    OpenGLRenderPass() = delete;
 
     virtual ~OpenGLRenderPass() = default;
 
@@ -41,6 +41,9 @@ public:
 
     // Creation parameters structure
     struct CreationParameters {
+        SNN_NO_COPY(CreationParameters);
+        CreationParameters(CreationParameters&& other) = default;
+
         std::string name;                       // Name
         InferencePassGl pass;                   // Inference pass
         std::vector<GLuint> sampler;            // An array of OpenGL samplers. Used to sample inputs
@@ -52,7 +55,7 @@ public:
     // Constructor
     // params:
     //  cp - creation parameters
-    OpenGLRenderPass(const CreationParameters& cp);
+    OpenGLRenderPass(CreationParameters&& cp);
 
     // Dump layer outputs
     // params:

@@ -12,28 +12,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
-#include "snn/snn.h"
 
-namespace gl {
-class RenderContext;
-}
-
-namespace snn {
-
-// This class represents OpenGL context
-class GlGpuContext : public GpuContext {
-public:
-    GlGpuContext(bool onlyInitGlExtensions);
-
-    virtual ~GlGpuContext();
-
-    static GlGpuContext* cast(GpuContext* context);
-
-    gl::RenderContext* getRenderContext() { return rc; }
-
-private:
-    gl::RenderContext* rc = nullptr;
-};
-
-}
+#include <snn/mdArrayImpl.h>

@@ -30,8 +30,8 @@ public:
 protected:
     bool generateConcatGLSamplingCode(int& idxStartPlane, int nOutputChannels, std::string& uniformsDeclaration, std::set<int>& inputTextures,
                                       std::string& calculation) const;
-    InferencePassesSptr createFS(const LayerGenOptions&) const override;
-    InferencePassesSptr createCS(const LayerGenOptions&) const override;
+    InferencePassesUptr createFS(const LayerGenOptions&) const override;
+    InferencePassesUptr createCS(const LayerGenOptions&) const override;
 };
 
 }; // namespace dp

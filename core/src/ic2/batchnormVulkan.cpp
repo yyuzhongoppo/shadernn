@@ -29,10 +29,10 @@ DECLARE_LAYER_VULKAN_CLASS(BatchNormalization);
 static constexpr const char* BATCHNORM_VK_ASSET_NAME = "shaders/shadertemplate_vk_batchnorm.spv";
 static constexpr const char* BATCHNORM_VK_FP16_ASSET_NAME = "shaders/shadertemplate_vk_batchnorm_fp16.spv";
 
-InferencePassesSptr BatchNormalizationLayerVulkan::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr BatchNormalizationLayerVulkan::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesVulkan());
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);
@@ -70,17 +70,17 @@ InferencePassesSptr BatchNormalizationLayerVulkan::createCS(const LayerGenOption
     int unit      = 4;
     uint32_t oc_4 = UP_DIV(_desc.numOutputPlanes, unit);
 
-    std::pair<std::string, std::vector<float>> betaBuffer("3", _desc.batchNormalization.at("beta"));
-    pass.objectBuffers.insert(betaBuffer);
+    const std::vector<float>& beta = _desc.batchNormalization.at("beta");
+    pass.objectBuffers["3"] = {beta.data(), beta.size()};
+        
+    const std::vector<float>& gamma = _desc.batchNormalization.at("gamma");
+    pass.objectBuffers["4"] = {gamma.data(), gamma.size()};
 
-    std::pair<std::string, std::vector<float>> gammaBuffer("4", _desc.batchNormalization.at("gamma"));
-    pass.objectBuffers.insert(gammaBuffer);
+    const std::vector<float>& mean = _desc.batchNormalization.at("movingMean");
+    pass.objectBuffers["5"] = {mean.data(), mean.size()};
 
-    std::pair<std::string, std::vector<float>> meanBuffer("5", _desc.batchNormalization.at("movingMean"));
-    pass.objectBuffers.insert(meanBuffer);
-
-    std::pair<std::string, std::vector<float>> varBuffer("6", _desc.batchNormalization.at("movingVariance"));
-    pass.objectBuffers.insert(varBuffer);
+    const std::vector<float>& variance = _desc.batchNormalization.at("movingVariance");
+    pass.objectBuffers["6"] = {variance.data(), variance.size()};
 
     std::vector<uint32_t> uniform(6);
     uniform[0] = inputWidth;
@@ -96,7 +96,7 @@ InferencePassesSptr BatchNormalizationLayerVulkan::createCS(const LayerGenOption
 
     pass.inputs  = {{"uInput", 0}};
 
-    std::vector<uchar> bytes;
+    std::vector<uint8_t> bytes;
     if (_desc.preferHp) {
         bytes = snn::loadEmbeddedAsset(BATCHNORM_VK_FP16_ASSET_NAME);
         pass.source = BATCHNORM_VK_FP16_ASSET_NAME;

@@ -14,8 +14,9 @@
  */
 #pragma once
 
-#include <snn/color.h>
-#include <snn/imageTexture.h>
+#include "snn/color.h"
+#include "snn/imageTexture.h"
+#include "snn/utils.h"
 #include <vector>
 #include <string>
 #include <functional>
@@ -36,8 +37,8 @@ struct InferenceGraph {
         ColorFormat format;
         uint32_t width;
         uint32_t height;
-        uint32_t depth;
-        uint32_t channels;
+        uint32_t depth;     // Depths of 3D image 
+        uint32_t channels;  // Logical number of channels
     };
 
     // This structure describes a reference to another layer in all layers array
@@ -69,6 +70,10 @@ struct InferenceGraph {
 
     // This structure declares one layer of the inference processing graph at high level.
     struct Layer {
+        ~Layer() {
+            SNN_LOGV("InferenceGraph::Layer destroyed: %p, %s ", this, name.c_str());
+        }
+
         LayerExecutionType layerLoc; // Location of layer (CPU or GPU)
         std::string name; // layer name (optional, for debugging and logging only)
         std::vector<LayerRef> inputRefs; // inputs of the layer.
@@ -90,8 +95,10 @@ struct InferenceGraph {
         TRunFunc runFunPtr;
     };
 
-    // Input shapes description. Used for debugging only.
+    // Input shapes description.
     std::vector<IODesc> inputsDesc;
+    // Output shapes description.
+    IODesc outputDesc;
     // All layers
     std::vector<std::shared_ptr<Layer>> layers;
 

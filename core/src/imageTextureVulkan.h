@@ -83,6 +83,11 @@ public:
     //  images - Vulkan images to attach
     virtual void attach(const std::vector<const GpuImageHandle*>& images) override;
 
+    // Attaches another Vulkan images
+    // params:
+    //  images - Vulkan images to attach
+    void attach(VkImage image, VkImageView imageView, VkImageLayout imageLayout);
+
     virtual bool isValid() const override {
         return _vkImages.size() > 0;
     }

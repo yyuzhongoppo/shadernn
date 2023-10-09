@@ -35,10 +35,10 @@ static constexpr const char* CONV2D_1x1_VK_FP16_ASSET_NAME = "shaders/shadertemp
 #define VK_WEIGHT_MODE 1
 // 0 in SSBO Buffer, 1 in Texture. Changing it also need to change PROFILE_FLAG in Vulkan operators.
 
-InferencePassesSptr Conv2DLayerVulkan::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr Conv2DLayerVulkan::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesVulkan());
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);
@@ -88,67 +88,41 @@ InferencePassesSptr Conv2DLayerVulkan::createCS(const LayerGenOptions& options) 
 
     uint32_t dilate = 1;
 
-    oihw2hwo4i4(_desc.weightsCvM, pass._vecWeights, _desc.numInputPlanes, _desc.numOutputPlanes, kernel, kernel);
-
 #if VK_WEIGHT_MODE == 0
     std::pair<std::string, std::vector<float>> weightBuffer("2", pass._vecWeights);
     pass.objectBuffers.insert(weightBuffer);
 #else
-    std::pair<std::string, std::vector<float>> weightBuffer("2", pass._vecWeights);
-    pass.weightBuffers.insert(weightBuffer);
-    std::pair<std::string, std::array<uint32_t, 3>> weightDim("2", {ic_4*unit, oc_4, (uint32_t)(kernel*kernel)});
-    pass.weightDims.insert(weightDim);
-    snn::ColorFormat weightFormat;
-    if (_desc.preferHp) {
-        weightFormat = snn::ColorFormat::RGBA16F;
-    } else {
-        weightFormat = snn::ColorFormat::RGBA32F;
-    }
-    SNN_LOGD("vulkan weight format: %s", _desc.preferHp ? "RGBA16F" : "RGBA32F");
-    std::pair<std::string, snn::ColorFormat> weightPrecision("2", weightFormat);
-    pass.weightFormats.insert(weightPrecision);
+    oihw2hwo4i4(_desc.weightsConv(), pass.weightBuffers["2"], _desc.numInputPlanes, _desc.numOutputPlanes, kernel, kernel);
+    std::array<uint32_t, 3> weightDim {ic_4 * unit, oc_4, (uint32_t)(kernel * kernel)};
+    pass.weightDims["2"] = weightDim;
+    SNN_LOGV("vulkan weight format: %s", _desc.preferHp ? "RGBA16F" : "RGBA32F");
+    pass.weightFormats["2"] = _desc.preferHp ? snn::ColorFormat::RGBA16F : snn::ColorFormat::RGBA32F;
 #endif
 
-    pass._vecBias.resize(_desc.numOutputPlanes, 0.0f);
-    for (size_t i = 0; i < _desc.biases.size(); i++) {
-        pass._vecBias[i] = (float) _desc.biases[i];
-    }
-    uint32_t useBias = 0;
-    if (_desc.biases.size() > 0) {
-        useBias = 1;
-    }
-
-    std::pair<std::string, std::vector<float>> biasBuffer("3", pass._vecBias);
-    pass.objectBuffers.insert(biasBuffer);
+    pass.objectBuffers["3"] = {_desc.biases.data(), _desc.biases.size()};
+    uint32_t useBias = (_desc.biases.size() > 0) ? 1U : 0U;
 
     uint32_t useBatchNorm = 1;
     if (_desc.useBatchNormalization) {
-        std::pair<std::string, std::vector<float>> betaBuffer("4", _desc.batchNormalization.at("beta"));
-        pass.objectBuffers.insert(betaBuffer);
+        const std::vector<float>& beta = _desc.batchNormalization.at("beta");
+        pass.objectBuffers["4"] = {beta.data(), beta.size()};
+        
+        const std::vector<float>& gamma = _desc.batchNormalization.at("gamma");
+        pass.objectBuffers["5"] = {gamma.data(), gamma.size()};
 
-        std::pair<std::string, std::vector<float>> gammaBuffer("5", _desc.batchNormalization.at("gamma"));
-        pass.objectBuffers.insert(gammaBuffer);
+        const std::vector<float>& mean = _desc.batchNormalization.at("movingMean");
+        pass.objectBuffers["6"] = {mean.data(), mean.size()};
 
-        std::pair<std::string, std::vector<float>> meanBuffer("6", _desc.batchNormalization.at("movingMean"));
-        pass.objectBuffers.insert(meanBuffer);
-
-        std::pair<std::string, std::vector<float>> varBuffer("7", _desc.batchNormalization.at("movingVariance"));
-        pass.objectBuffers.insert(varBuffer);
+        const std::vector<float>& variance = _desc.batchNormalization.at("movingVariance");
+        pass.objectBuffers["7"] = {variance.data(), variance.size()};
     } else {
         useBatchNorm = 0;
 
         // Insert dummy buffers to make Vulkan validation happy
-        std::pair<std::string, std::vector<float>> betaBuffer("4", {0.0f});
-        pass.objectBuffers.insert(betaBuffer);
-
-        std::pair<std::string, std::vector<float>> gammaBuffer("5", {0.0f});
-        pass.objectBuffers.insert(gammaBuffer);
-
-        std::pair<std::string, std::vector<float>> meanBuffer("6", {0.0f});
-        pass.objectBuffers.insert(meanBuffer);
-
-        std::pair<std::string, std::vector<float>> varBuffer("7", {0.0f});
-        pass.objectBuffers.insert(varBuffer);
+        pass.objectBuffers["4"] = {&pass.dummyValue, 1};
+        pass.objectBuffers["5"] = {&pass.dummyValue, 1};
+        pass.objectBuffers["6"] = {&pass.dummyValue, 1};
+        pass.objectBuffers["7"] = {&pass.dummyValue, 1};
     }
 
     if (kernel == 1) {
@@ -206,7 +180,7 @@ InferencePassesSptr Conv2DLayerVulkan::createCS(const LayerGenOptions& options) 
 
     pass.inputs  = {{"inputImage", 0}};
 
-    std::vector<uchar> bytes;
+    std::vector<uint8_t> bytes;
     if (kernel == 1) {
         if (_desc.preferHp) {
             bytes = snn::loadEmbeddedAsset(CONV2D_1x1_VK_FP16_ASSET_NAME);

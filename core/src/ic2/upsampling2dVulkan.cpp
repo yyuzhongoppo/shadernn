@@ -32,10 +32,10 @@ static constexpr const char* UPSAMPLING2D_BILINEAR_VK_ASSET_NAME  = "shaders/sha
 static constexpr const char* UPSAMPLING2D_NEAREST_VK_FP16_ASSET_NAME   = "shaders/shadertemplate_vk_upsampling2d_nearest_fp16.spv";
 static constexpr const char* UPSAMPLING2D_BILINEAR_VK_FP16_ASSET_NAME  = "shaders/shadertemplate_vk_upsampling2d_bilinear_fp16.spv";
 
-InferencePassesSptr UpSampling2DLayerVulkan::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr UpSampling2DLayerVulkan::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesVulkan());
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);

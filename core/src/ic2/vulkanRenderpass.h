@@ -37,6 +37,9 @@ public:
 
     // Creation parameters structure
     struct CreationParameters {
+        SNN_NO_COPY(CreationParameters);
+        CreationParameters(CreationParameters&& other) = default;
+
         std::string name;                                   // Name
         InferencePassVulkan pass;                           // Inference pass
         std::vector<uvkc::vulkan::Sampler*> samplers;       // An array of Vulkan sampler objects. Used to sample inputs
@@ -51,7 +54,7 @@ public:
     // params:
     //  context_ - Pointer to Vulkan context object
     //  cp - creation parameters
-    VulkanRenderPass(GpuContext* context_, const CreationParameters& cp);
+    VulkanRenderPass(GpuContext* context_, CreationParameters&& cp);
 
     // Dump layer inputs
     // params:

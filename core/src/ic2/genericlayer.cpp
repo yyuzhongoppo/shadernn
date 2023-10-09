@@ -22,8 +22,7 @@ namespace snn {
 namespace dp {
 
 GenericModelLayer::~GenericModelLayer() {
-    prevLayers.clear();
-    nextLayers.clear();
+    SNN_LOGV("Layer destroyed: %p, %s", this, name.c_str());
 }
 
 void GenericModelLayer::init(dp::DeviceBackend *backend, ImageTextureArray& inputMat, ImageTextureArray& outputMat) {
@@ -90,27 +89,30 @@ void GenericModelLayer::getOutputDims(uint32_t& width, uint32_t& height, uint32_
 }
 
 void ShaderLayer::createInferencePasses(const LayerGenOptions& options) {
-    InferencePassesSptr ret;
     // Try create Vulkan shader, if the options says so.
     if (options.vulkan) {
-        ret = createCS(options);
+        passes = createCS(options);
+        SNN_ASSERT(passes);
         setLayerExecutionType(InferenceGraph::LayerExecutionType::GPU_VK);
     } else {
         // auto executeLevel = getLayerExecutionType();
         // Try create compute shader, if the options says so.
         if ((options.compute)) {
-            ret = createCS(options);
-            setLayerExecutionType(InferenceGraph::LayerExecutionType::GPU_CS);
+            passes = createCS(options);
+            if (passes) {
+                setLayerExecutionType(InferenceGraph::LayerExecutionType::GPU_CS);
+                releaseCsResources();
+            }
         }
         // Buf if the shader layer does not support compute shader yet, we'll fallback to fragment shader.
-        if (!ret) {
-            ret = createFS(options);
+        if (!passes) {
+            passes = createFS(options);
+            SNN_ASSERT(passes);
             setLayerExecutionType(InferenceGraph::LayerExecutionType::GPU_FS);
+            releaseFsResources();
         }
     }
-    SNN_ASSERT(ret);
-
-    passes = ret;
+    SNN_ASSERT(passes);
 }
 
 std::string ShaderLayer::loadShader(const char* path) {
@@ -124,6 +126,18 @@ void ShaderLayer::findAndReplace(std::string& s, const std::string& from, const 
         s.replace(startIndex, from.size(), to);
         startIndex = s.find(from, startIndex + to.size());
     }
+}
+
+void GenericConvolutionLayer::releaseCsResources() {
+    SNN_ASSERT(_pDesc);
+    // Not needed anymore, because was transferred to InferencePass::_vecWeights
+    _pDesc->uptrWeights.reset();
+}
+
+void GenericConvolutionLayer::releaseResources() {
+    SNN_ASSERT(_pDesc);
+    _pDesc->uptrWeights.reset();
+    _pDesc->biases = {};
 }
 
 }   // namespace dp

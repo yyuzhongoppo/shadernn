@@ -27,10 +27,10 @@ using namespace snn::dp;
 static constexpr const char* SUBPIXEL_MERGE_VK_ASSET_NAME = "shaders/shadertemplate_vk_subpixel.spv";
 static constexpr const char* SUBPIXEL_MERGE_VK_FP16_ASSET_NAME = "shaders/shadertemplate_vk_subpixel_fp16.spv";
 
-InferencePassesSptr SubpixelLayerVulkan::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr SubpixelLayerVulkan::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesVulkan());
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);
@@ -65,7 +65,7 @@ InferencePassesSptr SubpixelLayerVulkan::createCS(const LayerGenOptions& options
 
     pass.inputs = {{"uInput", 0}};
 
-    std::vector<uchar> bytes;
+    std::vector<uint8_t> bytes;
     if (_desc.preferHp) {
         bytes = snn::loadEmbeddedAsset(SUBPIXEL_MERGE_VK_FP16_ASSET_NAME);
         pass.source = SUBPIXEL_MERGE_VK_FP16_ASSET_NAME;

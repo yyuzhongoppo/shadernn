@@ -29,9 +29,9 @@ using namespace snn::dp;
 static constexpr const char* UNARY_FS_ASSET_NAME = "shaders/shadertemplate_fs_unary.glsl";
 static constexpr const char* UNARY_CS_ASSET_NAME = "shaders/shadertemplate_cs_unary.glsl";
 
-InferencePassesSptr UnaryLayerGl::createFS(const GenericModelLayer::LayerGenOptions& options) const {
+InferencePassesUptr UnaryLayerGl::createFS(const GenericModelLayer::LayerGenOptions& options) const {
     (void) options;
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     int channelsPerPass = 4;
     switch (_desc.mrtMode) {
@@ -106,10 +106,10 @@ InferencePassesSptr UnaryLayerGl::createFS(const GenericModelLayer::LayerGenOpti
     return ret;
 }
 
-InferencePassesSptr UnaryLayerGl::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr UnaryLayerGl::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(1);

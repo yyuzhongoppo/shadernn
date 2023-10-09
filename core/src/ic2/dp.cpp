@@ -15,6 +15,7 @@
 #include "pch.h"
 #include "dp.h"
 #include "layerFactory.h"
+#include "inputlayer.h"
 #include <string>
 #include <algorithm>
 #include <sstream>
@@ -81,7 +82,7 @@ std::vector<std::shared_ptr<GenericModelLayer>> topologicalSort(std::shared_ptr<
 
     while (!pendingNodes.empty()) {
         std::shared_ptr<GenericModelLayer> node;
-        node.reset(pendingNodes[0].get());
+        node = pendingNodes[0];
         // Either do a real computation or mock test or build a piece of execution plan
         sortedNodes.push_back(node);
         // Done with this node. It cannot be visited again in acyclic praph
@@ -107,11 +108,6 @@ std::vector<std::shared_ptr<GenericModelLayer>> topologicalSort(std::shared_ptr<
     return sortedNodes;
 }
 
-void null_deleter(snn::dp::GenericModelLayer* layer) {
-    (void) layer;
-    return;
-}
-
 std::vector<std::shared_ptr<GenericModelLayer>> snn::dp::loadFromJsonModel(const std::string& fileName, bool useVulkan, const MRTMode& mrtMode,
                                                                            const WeightAccessMethod& weightMode, bool preferHp) {
     std::vector<std::shared_ptr<GenericModelLayer>> layers;
@@ -127,8 +123,8 @@ std::vector<std::shared_ptr<GenericModelLayer>> snn::dp::loadFromJsonModel(const
         SNN_ASSERT(numInbound == (int) parser.getInboundLayerId(i).size());
         const auto& layerName = parser.getLayerName(i);
 
-        auto newLayer = createLayerInstance(layerName, parser, i, useVulkan);
-        layers.emplace_back(std::shared_ptr<GenericModelLayer>(newLayer, &null_deleter));
+        GenericModelLayer* newLayer = createLayerInstance(layerName, parser, i, useVulkan);
+        layers.emplace_back(newLayer);
         headNodeIndex = 0;
         (void) numInbound;
 
@@ -164,221 +160,6 @@ std::vector<std::shared_ptr<GenericModelLayer>> snn::dp::loadFromJsonModel(const
     SNN_LOGD("Model loaded from JSON");
 
     return layers;
-}
-
-InferenceGraph snn::dp::generateInferenceGraph(std::shared_ptr<GenericModelLayer> head, const ShaderGenOptions& options) {
-    // generate an topological sorted shader list
-    auto modelLayers = topologicalSort(head);
-    InferenceGraph graph;
-    graph.mrtMode    = options.mrtMode;
-    graph.weightMode = options.weightMode;
-    std::map<std::shared_ptr<GenericModelLayer>, InferenceGraph::Layer*> s2l;
-    std::map<InferenceGraph::Layer*, std::shared_ptr<GenericModelLayer>> l2s;
-
-    uint32_t inputLayers = 0;
-
-    // create a collection of graph layers
-    for (auto modelLayer : modelLayers) {
-        // Currently fixed. We can set this per layer based on layer params later.
-        graph.layers.emplace_back(new InferenceGraph::Layer);
-        auto igLayer = graph.layers.back().get();
-
-        igLayer->imageTextureFunPtr = [modelLayer](ImageTextureArray& inputMat, ImageTextureArray& outputMat) {
-            modelLayer->computeImageTexture(inputMat, outputMat);
-        };
-
-        igLayer->initFunPtr = [modelLayer](DeviceBackend *backend, ImageTextureArray& inputMat, ImageTextureArray& outputMat) {
-            modelLayer->init(backend, inputMat, outputMat);
-        };
-
-        igLayer->runFunPtr = [modelLayer](DeviceBackend *backend, bool dumpOutputs) {
-            modelLayer->run(backend, dumpOutputs);
-        };
-
-        s2l[modelLayer] = igLayer;
-        l2s[igLayer] = modelLayer;
-
-        igLayer->layerLoc = modelLayer->getLayerExecutionType();
-        igLayer->name = modelLayer->getName();
-        igLayer->isInputLayer = modelLayer->isInputLayer();
-        if (modelLayer->isInputLayer()) {
-            inputLayers++;
-            igLayer->inputIndex = modelLayer->getInputIndex();
-        }
-        SNN_LOGD("layer name: %s, loc: %d, input: %d, # inputs: %d", igLayer->name.c_str(),
-            (int)igLayer->layerLoc, igLayer->isInputLayer, inputLayers);
-    }
-
-    auto prevOutputWidth = options.desiredInput[0].width;
-    auto prevOutputHight = options.desiredInput[0].height;
-
-    int numInputUnits  = options.desiredInput[0].width * options.desiredInput[0].height;
-    int numOutputUnits = numInputUnits;
-
-    InferenceGraph::LayerExecutionType prevLayerLoc = InferenceGraph::LayerExecutionType::NOT_DEFINED;
-    std::ostringstream modelFormat;
-    modelFormat << "================================================================\n";
-    modelFormat << "|  Layer ID  |              Name                 | Output Dims |\n";
-    modelFormat << "================================================================\n";
-    // loop through all layers
-    std::map<InferenceGraph::Layer*, size_t> l2i;
-    for (size_t i = 0; i < graph.layers.size(); ++i) {
-        auto igLayer  = graph.layers[i].get();
-        auto modelLayer = l2s[igLayer];
-        modelLayer->setMRTMode(options.mrtMode);
-        modelLayer->setWeightAccessMode(options.weightMode);
-
-        // build a layer to array index map
-        l2i[igLayer] = i;
-
-        uint32_t inputWidth = 0, inputHeight = 0, width = 0, height = 0, depth = 0;
-        if (modelLayer->prevLayers.size() > 0) {
-            // build input array for each layer
-            for (auto& prevModelLayer : modelLayer->prevLayers) {
-                InferenceGraph::LayerRef ref;
-                if (prevModelLayer->isInputLayer()) {
-                    ref.isStageOutput = false;
-                    ref.index         = l2i[s2l[prevModelLayer]];
-                    auto inputIdx = prevModelLayer->getInputIndex();
-                    auto imageInput   = InferenceGraph::IODesc {options.preferrHalfPrecision ? ColorFormat::RGBA16F : ColorFormat::RGBA32F,
-                                                            options.desiredInput[inputIdx].width, options.desiredInput[inputIdx].height,
-                                                            options.desiredInput[inputIdx].depth, 4 * options.desiredInput[inputIdx].depth};
-                    modelLayer->addInputDim(imageInput);
-                    inputWidth       = std::max(inputWidth, imageInput.width);
-                    inputHeight      = std::max(inputHeight, imageInput.height);
-                } else {
-                    ref.isStageOutput = true;
-                    ref.index         = l2i[s2l[prevModelLayer]];
-                    const InferenceGraph::IODesc& imageInput   = graph.layers[ref.index].get()->outputDesc;
-                    modelLayer->addInputDim(imageInput);
-                    inputWidth  = std::max(inputWidth, imageInput.width);
-                    inputHeight = std::max(inputHeight, imageInput.height);
-                }
-                igLayer->inputRefs.push_back(ref);
-            }
-            modelLayer->getOutputDims(width, height, depth);
-            SNN_LOGD("%%%%%%%% layer: %zu, name : %s, prev:%zu", i, modelLayer->getName().c_str(), igLayer->inputRefs.size());
-        } else {  // For all of the Input layers
-            InferenceGraph::LayerRef ref;
-            ref.isStageOutput = false;
-            ref.index         = -1;
-            auto inputIdx = modelLayer->getInputIndex();
-            auto imageInput   = InferenceGraph::IODesc {options.preferrHalfPrecision ? ColorFormat::RGBA16F : ColorFormat::RGBA32F,
-                                                        options.desiredInput[inputIdx].width, options.desiredInput[inputIdx].height,
-                                                        options.desiredInput[inputIdx].depth, 4 * options.desiredInput[inputIdx].depth};
-            modelLayer->addInputDim(imageInput);
-            inputWidth =  imageInput.width;
-            inputHeight = imageInput.height;
-            modelLayer->getOutputDims(width, height, depth);
-            igLayer->inputRefs.push_back(ref);
-            SNN_LOGD("%%%%%%%% layer: %zu, name : %s, prev:%zu", i, modelLayer->getName().c_str(), igLayer->inputRefs.size());
-        }
-
-        auto name      = modelLayer->getName();
-        auto layerName = name.substr(name.find("["), std::string::npos);
-        // Format the model structure for output
-        int idxBuffer  = i > 9 ? 10 : 11;
-        idxBuffer      = (i > 99) ? 9 : idxBuffer;
-        int nameBuffer = 35 - layerName.length();
-        auto dimsStr   = std::to_string(width) + " x " + std::to_string(height) + " x " + std::to_string(depth);
-        int dimsBuffer = 12 - dimsStr.length();
-
-        if (nameBuffer - 1 < 0) {
-            layerName = layerName.substr(0, 31) + "...";
-        }
-
-        modelFormat << "|" << std::string(idxBuffer / 2, ' ') << i << std::string((idxBuffer % 2 == 0) ? (idxBuffer / 2) : (idxBuffer / 2 + 1), ' ') << "| ";
-        modelFormat << layerName << ((nameBuffer - 1) > 0 ? std::string(nameBuffer - 1, ' ') : "") << "| ";
-        modelFormat << dimsStr << (dimsBuffer > 0 ? std::string(dimsBuffer, ' ') : "") << "|\n";
-        SNN_LOGD("%%%%%%%% layer = %zu, name  = %s, output dim = %d %d %d loc = %d", i, modelLayer->getName().c_str(), width, height, depth,
-            (int)igLayer->layerLoc);
-
-        if (igLayer->layerLoc == InferenceGraph::LayerExecutionType::GPU_FS || igLayer->layerLoc == InferenceGraph::LayerExecutionType::GPU_CS
-            || igLayer->layerLoc == InferenceGraph::LayerExecutionType::GPU_VK) {
-            ShaderLayer::LayerGenOptions opt;
-            (ShaderGenOptions&) opt = options;
-            opt.desiredInput[0].width  = inputWidth; // FIXME: what if the input layer is not right in front of current layer?
-            opt.desiredInput[0].height = inputHeight;
-
-            opt.desiredOutputWidth  = width;
-            opt.desiredOutputHeight = height;
-            opt.isFirstLayer        = (i == inputLayers);
-            opt.isLastLayer         = (i == (graph.layers.size() - 1));
-            opt.compute      = options.compute;
-            opt.mrtMode      = options.mrtMode;
-            opt.weightMode   = options.weightMode;
-            opt.vulkan       = options.vulkan;
-            if (modelLayer->isInputLayer()) {
-                if ((options.vulkan)) {
-                    modelLayer->setLayerExecutionType(snn::InferenceGraph::LayerExecutionType::GPU_VK);
-                } else if ((options.compute)) {
-                    modelLayer->setLayerExecutionType(snn::InferenceGraph::LayerExecutionType::GPU_CS);
-                } else {
-                    modelLayer->setLayerExecutionType(snn::InferenceGraph::LayerExecutionType::GPU_FS);
-                }
-                SNN_LOGD("%%%%%%%% layer: %zu, name : %s, output dim: %d %d %d loc: %d", i, modelLayer->getName().c_str(), width, height, depth,
-                    (int)igLayer->layerLoc);
-            } else {
-                modelLayer->createInferencePasses(opt);
-                SNN_LOGD("%%%%%%%% layer: %zu, name : %s, output dim: %d %d %d loc: %d", i, modelLayer->getName().c_str(), width, height, depth,
-                    (int)igLayer->layerLoc);
-            }
-            igLayer->layerLoc  = modelLayer->getLayerExecutionType();
-
-            igLayer->outputDesc = {
-                options.preferrHalfPrecision ? ColorFormat::RGBA16F : ColorFormat::RGBA32F, width, height,
-                    DIV_4_ROUND_UP(modelLayer->getDesc().numOutputPlanes),
-                modelLayer->getDesc().numOutputPlanes
-            };
-
-            prevOutputWidth = width;
-            prevOutputHight = height;
-
-            SNN_ASSERT(igLayer->outputDesc.width > 0);
-            SNN_ASSERT(igLayer->outputDesc.height > 0);
-            SNN_ASSERT(igLayer->outputDesc.depth > 0);
-            prevLayerLoc        = igLayer->layerLoc;
-            igLayer->flattenLayer = false;
-
-            SNN_LOGD("Layer: %zu %s, layer output = %d:%d:%d, input: width = %d, height = %d, depth = %d, output: width = %d"
-                     ", height = %d, depth = %d, loc = %d",
-                     i, modelLayer->getName().c_str(), igLayer->outputDesc.width, igLayer->outputDesc.height, igLayer->outputDesc.depth,
-                     opt.desiredInput[0].width, opt.desiredInput[0].height, opt.desiredInput[0].depth, opt.desiredOutputWidth, opt.desiredOutputHeight,
-                     DIV_4_ROUND_UP(modelLayer->getDesc().numOutputPlanes), (int)igLayer->layerLoc);
-
-        } else {
-            if (i == 0) {
-                SNN_RIP("CPU layer currently cannot cannot be the 1-st layer in the graph !");
-            }
-            if (prevLayerLoc == InferenceGraph::LayerExecutionType::GPU_FS || prevLayerLoc == InferenceGraph::LayerExecutionType::GPU_CS
-                || prevLayerLoc == InferenceGraph::LayerExecutionType::GPU_VK) {
-                igLayer->flattenLayer = true;
-                numInputUnits       = prevOutputWidth * prevOutputHight;
-                numOutputUnits      = (int) (width);
-            } else {
-                numInputUnits       = numOutputUnits;
-                numOutputUnits      = (int) (numOutputUnits * numInputUnits);
-                igLayer->flattenLayer = false;
-            }
-
-            igLayer->outputDesc = {
-                options.preferrHalfPrecision ? ColorFormat::RGBA16F : ColorFormat::RGBA32F, width, height, depth, modelLayer->getDesc().numOutputPlanes
-            };
-
-            prevLayerLoc = igLayer->layerLoc;
-        }
-
-        igLayer->name = modelLayer->getName();
-        modelFormat << "----------------------------------------------------------------\n";
-    }
-
-    head = modelLayers.at(1);
-
-    graph.inputsDesc = options.desiredInput;
-
-    modelFormat << "================================================================\n";
-    SNN_LOGI("\n%s", modelFormat.str().c_str());
-    return graph;
 }
 
 // This new topological sort supports multiple input layers in the model.
@@ -428,14 +209,11 @@ std::vector<std::shared_ptr<GenericModelLayer>> topologicalSort2(const std::vect
     return sortedNodes;
 }
 
-// This new generateInferenceGraph support multiple inputs with new topological sort algorithm.
-InferenceGraph snn::dp::generateInferenceGraph(std::vector<std::shared_ptr<GenericModelLayer>> &layers, const ShaderGenOptions& options) {
-    // generate an topological sorted shader list
-    auto modelLayers = topologicalSort2(layers);
+static InferenceGraph generateInferenceGraph1(InferenceModel& modelLayers, const ShaderGenOptions& options) {
     InferenceGraph graph;
     graph.mrtMode    = options.mrtMode;
     graph.weightMode = options.weightMode;
-    std::map<std::shared_ptr<GenericModelLayer>, InferenceGraph::Layer*> s2l;
+    std::map<GenericModelLayer*, InferenceGraph::Layer*> s2l;
     std::map<InferenceGraph::Layer*, std::shared_ptr<GenericModelLayer>> l2s;
 
     uint32_t inputLayers = 0;
@@ -458,7 +236,7 @@ InferenceGraph snn::dp::generateInferenceGraph(std::vector<std::shared_ptr<Gener
             modelLayer->run(backend, dumpOutputs);
         };
 
-        s2l[modelLayer] = igLayer;
+        s2l[modelLayer.get()] = igLayer;
         l2s[igLayer] = modelLayer;
 
         igLayer->layerLoc = modelLayer->getLayerExecutionType();
@@ -472,12 +250,6 @@ InferenceGraph snn::dp::generateInferenceGraph(std::vector<std::shared_ptr<Gener
             (int)igLayer->layerLoc, igLayer->isInputLayer, inputLayers);
     }
 
-    auto prevOutputWidth = options.desiredInput[0].width;
-    auto prevOutputHight = options.desiredInput[0].height;
-
-    int numInputUnits  = options.desiredInput[0].width * options.desiredInput[0].height;
-    int numOutputUnits = numInputUnits;
-
     InferenceGraph::LayerExecutionType prevLayerLoc = InferenceGraph::LayerExecutionType::NOT_DEFINED;
     std::ostringstream modelFormat;
     modelFormat << "================================================================\n";
@@ -485,6 +257,7 @@ InferenceGraph snn::dp::generateInferenceGraph(std::vector<std::shared_ptr<Gener
     modelFormat << "================================================================\n";
     // loop through all layers
     std::map<InferenceGraph::Layer*, size_t> l2i;
+    uint32_t width = 0, height = 0, depth = 0;
     for (size_t i = 0; i < graph.layers.size(); ++i) {
         auto igLayer  = graph.layers[i].get();
         auto modelLayer = l2s[igLayer];
@@ -493,18 +266,32 @@ InferenceGraph snn::dp::generateInferenceGraph(std::vector<std::shared_ptr<Gener
 
         // build a layer to array index map
         l2i[igLayer] = i;
-        uint32_t inputWidth = 0, inputHeight = 0, width = 0, height = 0, depth = 0;
+        uint32_t inputWidth = 0, inputHeight = 0;
+        width = height = depth = 0;
         if (modelLayer->prevLayers.size() > 0) {
             // build input array for each layer
-            for (auto& prevModelLayer : modelLayer->prevLayers) {
+            for (std::weak_ptr<GenericModelLayer>& prevModelLayerWeak : modelLayer->prevLayers) {
+                GenericModelLayer* prevModelLayer = prevModelLayerWeak.lock().get();
                 InferenceGraph::LayerRef ref;
                 if (prevModelLayer->isInputLayer()) {
                     ref.isStageOutput = false;
                     ref.index         = l2i[s2l[prevModelLayer]];
-                    auto inputIdx = prevModelLayer->getInputIndex();
-                    auto imageInput   = InferenceGraph::IODesc {options.preferrHalfPrecision ? ColorFormat::RGBA16F : ColorFormat::RGBA32F,
-                                                            options.desiredInput[inputIdx].width, options.desiredInput[inputIdx].height,
-                                                            options.desiredInput[inputIdx].depth, 4 * options.desiredInput[inputIdx].depth};
+                    uint32_t inputIdx = prevModelLayer->getInputIndex();
+
+                    // Feature: if input shape is not provided, take it from the model
+                    if (options.desiredInput.size() < inputIdx + 1) {
+                        options.desiredInput.resize(inputIdx + 1, {});
+                        InputLayerLayer* inputLayer = static_cast<InputLayerLayer*>(prevModelLayer);
+                        if (inputLayer->getDesc().inputWidth == 0 || inputLayer->getDesc().inputHeight == 0 || inputLayer->getDesc().inputChannels == 0) {
+                            SNN_RIP("Input dimension %d are not provided for the layer: %s neither from input, nor from the model!", inputIdx, prevModelLayer->getName().c_str());
+                        }
+                        options.desiredInput[inputIdx].width = inputLayer->getDesc().inputWidth;
+                        options.desiredInput[inputIdx].height = inputLayer->getDesc().inputHeight;
+                        options.desiredInput[inputIdx].depth = DIV_4_ROUND_UP(inputLayer->getDesc().inputChannels);
+                    }
+                    InferenceGraph::IODesc imageInput {options.preferrHalfPrecision ? ColorFormat::RGBA16F : ColorFormat::RGBA32F,
+                                                       options.desiredInput[inputIdx].width, options.desiredInput[inputIdx].height,
+                                                       options.desiredInput[inputIdx].depth, 4 * options.desiredInput[inputIdx].depth};
                     SNN_LOGV("%d,%d,%d, %d", imageInput.width, imageInput.height, imageInput.depth, imageInput.channels);
                     modelLayer->addInputDim(imageInput);
                     inputWidth       = std::max(inputWidth, imageInput.width);
@@ -525,10 +312,25 @@ InferenceGraph snn::dp::generateInferenceGraph(std::vector<std::shared_ptr<Gener
             InferenceGraph::LayerRef ref;
             ref.isStageOutput = false;
             ref.index         = -1;
-            auto inputIdx = modelLayer->getInputIndex();
-            auto imageInput   = InferenceGraph::IODesc {options.preferrHalfPrecision ? ColorFormat::RGBA16F : ColorFormat::RGBA32F,
-                                                        options.desiredInput[inputIdx].width, options.desiredInput[inputIdx].height,
-                                                        options.desiredInput[inputIdx].depth, 4 * options.desiredInput[inputIdx].depth};
+            uint32_t inputIdx = modelLayer->getInputIndex();
+            // Feature: if input shape is not provided, take it from the model
+            if (options.desiredInput.size() < inputIdx + 1) {
+                options.desiredInput.resize(inputIdx + 1, {});
+                if (modelLayer->isInputLayer()) {
+                    InputLayerLayer* inputLayer = static_cast<InputLayerLayer*>(modelLayer.get());
+                    if (inputLayer->getDesc().inputWidth == 0 || inputLayer->getDesc().inputHeight == 0 || inputLayer->getDesc().inputChannels == 0) {
+                        SNN_RIP("Input dimension %d are not provided for the layer: %s neither from input, nor from the model!", inputIdx, modelLayer->getName().c_str());
+                    }
+                    options.desiredInput[inputIdx].width = inputLayer->getDesc().inputWidth;
+                    options.desiredInput[inputIdx].height = inputLayer->getDesc().inputHeight;
+                    options.desiredInput[inputIdx].depth = DIV_4_ROUND_UP(inputLayer->getDesc().inputChannels);
+                } else {
+                    SNN_RIP("Input dimension %d are not provided for the layer: %s neither from input, nor from the model!", inputIdx, modelLayer->getName().c_str());
+                }
+            }
+            InferenceGraph::IODesc imageInput {options.preferrHalfPrecision ? ColorFormat::RGBA16F : ColorFormat::RGBA32F,
+                                               options.desiredInput[inputIdx].width, options.desiredInput[inputIdx].height,
+                                               options.desiredInput[inputIdx].depth, 4 * options.desiredInput[inputIdx].depth};
             modelLayer->addInputDim(imageInput);
             inputWidth =  imageInput.width;
             inputHeight = imageInput.height;
@@ -588,12 +390,9 @@ InferenceGraph snn::dp::generateInferenceGraph(std::vector<std::shared_ptr<Gener
 
             igLayer->outputDesc = {
                 options.preferrHalfPrecision ? ColorFormat::RGBA16F : ColorFormat::RGBA32F, width, height,
-                    DIV_4_ROUND_UP(modelLayer->getDesc().numOutputPlanes),
+                DIV_4_ROUND_UP(modelLayer->getDesc().numOutputPlanes),  // depth is treated as number of RGBA planes in GPU layers
                 modelLayer->getDesc().numOutputPlanes
             };
-
-            prevOutputWidth = width;
-            prevOutputHight = height;
 
             SNN_ASSERT(igLayer->outputDesc.width > 0);
             SNN_ASSERT(igLayer->outputDesc.height > 0);
@@ -613,16 +412,20 @@ InferenceGraph snn::dp::generateInferenceGraph(std::vector<std::shared_ptr<Gener
             if (prevLayerLoc == InferenceGraph::LayerExecutionType::GPU_FS || prevLayerLoc == InferenceGraph::LayerExecutionType::GPU_CS
                 || prevLayerLoc == InferenceGraph::LayerExecutionType::GPU_VK) {
                 igLayer->flattenLayer = true;
-                numInputUnits       = prevOutputWidth * prevOutputHight;
-                numOutputUnits      = (int) (width);
             } else {
-                numInputUnits       = numOutputUnits;
-                numOutputUnits      = (int) (numOutputUnits * numInputUnits);
                 igLayer->flattenLayer = false;
             }
 
             igLayer->outputDesc = {
-                options.preferrHalfPrecision ? ColorFormat::RGBA16F : ColorFormat::RGBA32F, width, height, depth, modelLayer->getDesc().numOutputPlanes
+                options.preferrHalfPrecision ? ColorFormat::RGBA16F : ColorFormat::RGBA32F, width, height,
+                depth,  // depth is treated as number of logical channels in CPU layers
+
+#if 0
+                // Looks like this value is incorrect for the last layer in some models
+                modelLayer->getDesc().numOutputPlanes
+#else
+                depth
+#endif
             };
 
             prevLayerLoc = igLayer->layerLoc;
@@ -633,8 +436,27 @@ InferenceGraph snn::dp::generateInferenceGraph(std::vector<std::shared_ptr<Gener
     }
 
     graph.inputsDesc = options.desiredInput;
+    graph.outputDesc.width = width;
+    graph.outputDesc.height = height;
+    graph.outputDesc.depth = depth;
+    graph.outputDesc.channels = graph.layers.empty() ? 0U : graph.layers.back()->outputDesc.channels;
 
     modelFormat << "================================================================\n";
     SNN_LOGI("\n%s", modelFormat.str().c_str());
+    SNN_LOGD("Graph input: width = %d, height = %d, depth = %d, channels = %d", graph.inputsDesc[0].width, graph.inputsDesc[0].height, graph.inputsDesc[0].depth, graph.inputsDesc[0].channels);
+    SNN_LOGD("Graph output: width = %d, height = %d, depth = %d, channels = %d", graph.outputDesc.width, graph.outputDesc.height, graph.outputDesc.depth, graph.outputDesc.channels);
     return graph;
+}
+
+InferenceGraph snn::dp::generateInferenceGraph(std::shared_ptr<GenericModelLayer> head, const ShaderGenOptions& options) {
+    // generate a topological sorted shader list
+    InferenceModel modelLayers = topologicalSort(head);
+    return generateInferenceGraph1(modelLayers, options);
+}
+
+// This new generateInferenceGraph support multiple inputs with new topological sort algorithm.
+InferenceGraph snn::dp::generateInferenceGraph(std::vector<std::shared_ptr<GenericModelLayer>> &layers, const ShaderGenOptions& options) {
+    // generate a topological sorted shader list
+    InferenceModel modelLayers = topologicalSort2(layers);
+    return generateInferenceGraph1(modelLayers, options);
 }

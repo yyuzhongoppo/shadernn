@@ -53,7 +53,7 @@ struct RenderStage {
     // correspondent to stageInputs
     std::vector<int> inputIds;
     // This mask indicates that the input to the stage is model input image
-    // 0: input to output binding happens at initialization time. Input is a previous hidden laer output.
+    // 0: input to output binding happens at initialization time. Input is a previous hidden layer output.
     // 1: input to output binding happens at runtime time (delayed). Input is a model input image.
     std::vector<int> delayBindMask;
 };
@@ -78,10 +78,6 @@ public:
         ImageTextureArrayAccessor inputImages;
         // Output images
         ImageTextureArrayAccessor outputImages;
-        // Input if located on CPU
-        std::vector<std::vector<std::vector<float>>> inputMatrix;
-        // Output if located on CPU
-        std::vector<std::vector<std::vector<float>>> output;
         // Output from special model types
         SNNModelOutput modelOutput;
     };
@@ -92,8 +88,7 @@ public:
     void run(RunParameters& rp);
 
     struct CreationParameters : InferenceGraph {
-        uint32_t outputWidth, outputHeight, outputDepth;
-        bool dumpOutputs;
+        bool dumpOutputs = false;
     };
 
     // Creates an instance of MixedInferenceCore given creation parameters
@@ -121,6 +116,26 @@ public:
     //  timeArray - a map with keys of layer names and values of timing of successive runs
     void writeTimeStat(std::map<std::string, std::vector<double>>& timeArray);
 
+    // Returns the number of inputs
+    uint32_t getNumInputs() const {
+        return cp.inputsDesc.size();
+    }
+
+    // Gets input dimensions
+    // params:
+    // width - input width
+    // height - input heights
+    // depth - input number of logical channels
+    // idx - the index of the input
+    void getInputDims(uint32_t& width, uint32_t& height, uint32_t& depth, uint32_t idx = 0) const;
+
+    // Gets output dimensions
+    // params:
+    // width - output width
+    // height - output heights
+    // depth - output number of logical channels
+    void getOutputDims(uint32_t& width, uint32_t& height, uint32_t& depth) const;
+
 private:
     GpuContext* context;
 
@@ -135,11 +150,11 @@ private:
     dp::DeviceBackend* backend = NULL;
     DeviceTimer* gpuRunTime = NULL;
 
-    Timer cpuRunTime = Timer("IC2 Total CPU Runtime");
     // Model output if located on CPU
     std::vector<std::vector<float>> output;
 
     std::string printTimingStats() const;
+    std::string printInitTimings() const;
     MixedInferenceCore(GpuContext* context_);
 
     bool init(const CreationParameters& cp);

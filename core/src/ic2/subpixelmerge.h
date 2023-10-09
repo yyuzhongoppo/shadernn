@@ -25,7 +25,6 @@ namespace dp { // short for Dynamic Pipeline
 
 struct SubpixelDesc : CommonLayerDesc {
     uint32_t kernelSize;
-    std::vector<double> biases; // make it float?
     void parse(ModelParser& parser, int layerId) {
         CommonLayerDesc::parse(parser, layerId);
         kernelSize = 2;

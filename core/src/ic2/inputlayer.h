@@ -34,15 +34,21 @@ struct InputLayerDesc : CommonLayerDesc {
 // This is a class that represents input layer. It does not generate any shader.
 class InputLayerLayer : public ShaderLayer {
 public:
-    InputLayerLayer(InputLayerDesc desc): ShaderLayer(desc) {}
+    InputLayerLayer(InputLayerDesc&& d)
+        : ShaderLayer(d)
+        , _desc(std::move(d))
+    {}
+
     virtual ~InputLayerLayer() = default;
 
+    const InputLayerDesc& getDesc() const { return _desc; }
+
 protected:
-    virtual InferencePassesSptr createFS(const LayerGenOptions&) const override { SNN_RIP("Not implemented !"); }
-    virtual InferencePassesSptr createCS(const LayerGenOptions&) const override { SNN_RIP("Not implemented !"); }
+    virtual InferencePassesUptr createFS(const LayerGenOptions&) const override { SNN_RIP("Not implemented !"); }
+    virtual InferencePassesUptr createCS(const LayerGenOptions&) const override { SNN_RIP("Not implemented !"); }
 
 private:
-    InputLayerDesc desc;
+    InputLayerDesc _desc;
 };
 
 }; // namespace dp

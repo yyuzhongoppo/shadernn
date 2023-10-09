@@ -93,12 +93,15 @@ set(SRC_COMMON
     ${COMMON_DIR}/shaderUnitTest.cpp
     ${COMMON_DIR}/modelInference.cpp
     ${COMMON_DIR}/inferenceProcessor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/image_utils.cpp
 )
 
 set(snn_3rdparty_headers
+    ${3rdparty-dir}/glm/include/
     ${3rdparty-dir}/eigen-3.4.0/
     ${3rdparty-dir}/picojson/include/
     ${3rdparty-dir}/cli11/include/
+    ${3rdparty-dir}/glad/include/
 )
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -189,3 +192,5 @@ snn_add_test(unetFinetuned Test)
 snn_add_test(mobilenetv2 Test)
 snn_add_test(mobilenetv2Finetuned Test)
 snn_add_test(styleTransfer Test)
+# Frame extrapolation
+snn_add_test(qcFrameExtrapolation Test)

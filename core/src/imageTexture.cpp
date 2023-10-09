@@ -161,8 +161,11 @@ void ImageTexture::resetImages() {
     case ColorFormat::RGBA32F:
         _images = ManagedImage<Rgba32f>(ImageDesc(std::move(planes)));
         break;
+    case ColorFormat::R8:
+        _images = ManagedImage<R8>(ImageDesc(std::move(planes)));
+        break;
     case ColorFormat::R32F:
-        _images = ManagedImage<Rgba32f>(ImageDesc(std::move(planes)));
+        _images = ManagedImage<R32f>(ImageDesc(std::move(planes)));
         break;
     case ColorFormat::RGBA16F:
         _images = ManagedImage<Rgba16f>(ImageDesc(std::move(planes)));

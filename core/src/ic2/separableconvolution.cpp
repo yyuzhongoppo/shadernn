@@ -85,25 +85,30 @@ void SeparableConv2DLayer::getOutputDims(uint32_t& width, uint32_t& height, uint
     }
 }
 
-bool SeparableConv2DLayer::oihw2hwo4i4(std::vector<cv::Mat> inputWeights, std::vector<float>& outVec, int inChannels,
+bool SeparableConv2DLayer::oihw2hwo4i4(const Conv2DSupport::WeightsTensor& inputWeights, std::vector<float>& outVec, int inChannels,
     int outChannels, int fw, int fh, int unit) {
     (void) inChannels;
+    
+    SNN_ASSERT(outChannels <= inputWeights.dim(1));
+    SNN_ASSERT(fh <= inputWeights.dim(2));
+    SNN_ASSERT(fw <= inputWeights.dim(3));
+
     int alignedWeightSize = ROUND_UP(outChannels, unit) * fw * fh;
 
-    outVec.clear();
-    outVec.resize(alignedWeightSize);
+    outVec.resize(alignedWeightSize, 0.0f);
     std::fill(outVec.begin(), outVec.end(), 0);
-
-    float* out    = (float*) outVec.data();
-    int planeSize = ROUND_UP(outChannels, unit) * fw;
-    for (int b = 0; b < outChannels; ++b) {
-        int b_4 = b / unit;
-        int mx  = b % unit;
-        for (int y = 0; y < fh; ++y) {
-            for (int x = 0; x < fw; ++x) {
-                int base                                 = y * planeSize;
-                int inSize                               = ROUND_UP(outChannels, unit); // in the number of floats
-                out[base + inSize * x + b_4 * unit + mx] = inputWeights[b].at<float>(y * fw + x);
+    const uint32_t planeSize = ROUND_UP(outChannels, unit) * fw;
+    const uint32_t inSize = ROUND_UP(outChannels, unit);
+    const auto& iw0 = inputWeights[0];
+    for (uint32_t oc = 0; oc < outChannels; ++oc) {
+        uint32_t od   = oc / unit;                       // od:   output depth
+        uint32_t od_c = oc % unit;                       // od_c: output depth RGBA channel
+        const auto& iw1 = iw0[oc];
+        for (uint32_t y = 0; y < fh; ++y) {
+            uint32_t base  = y * planeSize;
+            const auto& iw2 = iw1[y];
+            for (uint32_t x = 0; x < fw; ++x) {
+                outVec[base + inSize * x + od * unit + od_c] = iw2[x];
             }
         }
     }

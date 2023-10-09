@@ -30,10 +30,10 @@ using namespace snn::dp;
 static constexpr const char* INSTANCENORM_VK_ASSET_NAME = "shaders/shadertemplate_vk_instancenorm.spv";
 static constexpr const char* INSTANCENORM_VK_FP16_ASSET_NAME = "shaders/shadertemplate_vk_instancenorm_fp16.spv";
 
-InferencePassesSptr InstanceNormLayerVulkan::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr InstanceNormLayerVulkan::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesVulkan());
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);
@@ -83,11 +83,11 @@ InferencePassesSptr InstanceNormLayerVulkan::createCS(const LayerGenOptions& opt
     };
     pass.specConstants = specConstants;
 
-    std::pair<std::string, std::vector<float>> betaBuffer("3", _desc.instanceNormalization.at("beta"));
-    pass.objectBuffers.insert(betaBuffer);
+    const std::vector<float>& beta = _desc.instanceNormalization.at("beta");
+    pass.objectBuffers["3"] = {beta.data(), beta.size()};
 
-    std::pair<std::string, std::vector<float>> gammaBuffer("4", _desc.instanceNormalization.at("gamma"));
-    pass.objectBuffers.insert(gammaBuffer);
+    const std::vector<float>& gamma = _desc.instanceNormalization.at("gamma");
+    pass.objectBuffers["4"] = {gamma.data(), gamma.size()};
 
     std::vector<uint32_t> uniform(8);
     uniform[0] = inputWidth;
@@ -105,7 +105,7 @@ InferencePassesSptr InstanceNormLayerVulkan::createCS(const LayerGenOptions& opt
 
     pass.inputs  = {{"uInput", 0}};
 
-    std::vector<uchar> bytes;
+    std::vector<uint8_t> bytes;
     if (_desc.preferHp) {
         bytes = snn::loadEmbeddedAsset(INSTANCENORM_VK_FP16_ASSET_NAME);
     } else {

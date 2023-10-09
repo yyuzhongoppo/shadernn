@@ -28,8 +28,8 @@ static constexpr const char* UPSAMPLING2D_FS_ASSET_NAME          = "shaders/shad
 static constexpr const char* UPSAMPLING2D_NEAREST_CS_ASSET_NAME  = "shaders/3rdparty/shadertemplate_cs_upsampling2d_nearest.glsl";
 static constexpr const char* UPSAMPLING2D_BILINEAR_CS_ASSET_NAME = "shaders/3rdparty/shadertemplate_cs_upsampling2d_bilinear.glsl";
 
-InferencePassesSptr UpSampling2DLayerGl::createFS(const LayerGenOptions&) const {
-    InferencePassesSptr ret(new InferencePassesGl());
+InferencePassesUptr UpSampling2DLayerGl::createFS(const LayerGenOptions&) const {
+    InferencePassesUptr ret(new InferencePassesGl());
 
     auto& desc = getDesc();
 
@@ -74,10 +74,10 @@ InferencePassesSptr UpSampling2DLayerGl::createFS(const LayerGenOptions&) const 
     return ret;
 }
 
-InferencePassesSptr UpSampling2DLayerGl::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr UpSampling2DLayerGl::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(1);
@@ -182,7 +182,7 @@ bool UpSampling2DLayerGl::generateUpSampling2DGLSamplingCode(int& idxStartPlane,
     auto curTexture = prevLayers.begin();
 
     std::string varsAssignment, resultAssigment;
-    if (1 == (*curTexture)->getDesc().numOutputPlanes) {
+    if (1 == (*curTexture).lock()->getDesc().numOutputPlanes) {
         varsAssignment =
             "float value = texelFetch(inputTextures, ivec2(int(float(uv.x)/SCALE_FACTOR), int(float(uv.y)/SCALE_FACTOR))," + std::to_string(0) + ").r;\n";
         resultAssigment     = "    s = vec4(value, 0.0f, 0.0f, 0.0f); ";

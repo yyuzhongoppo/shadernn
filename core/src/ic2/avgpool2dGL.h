@@ -27,8 +27,8 @@ public:
     virtual ~AveragePooling2DLayerGl() = default;
 
 protected:
-    InferencePassesSptr createFS(const LayerGenOptions&) const override;
-    InferencePassesSptr createCS(const LayerGenOptions&) const override;
+    InferencePassesUptr createFS(const LayerGenOptions&) const override;
+    InferencePassesUptr createCS(const LayerGenOptions&) const override;
 
 private:
     void buildPreDefine(std::ostringstream& stream, const LayerGenOptions& options, const std::string& shaderFilePath) const;

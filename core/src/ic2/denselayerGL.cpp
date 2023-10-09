@@ -26,16 +26,16 @@ using namespace snn::dp;
 
 static constexpr const char* DENSE_CS_ASSET_NAME = "shaders/shadertemplate_cs_dense.glsl";
 
-InferencePassesSptr DenseLayerGl::createFS(const LayerGenOptions&) const {
-    InferencePassesSptr ret(new InferencePassesGl());
+InferencePassesUptr DenseLayerGl::createFS(const LayerGenOptions&) const {
+    InferencePassesUptr ret(new InferencePassesGl());
     SNN_LOGW("%%%%%%%% %s:%d No FS implementation for Dense layer !");
     return ret;
 }
 
-InferencePassesSptr DenseLayerGl::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr DenseLayerGl::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     int inputWidth       = (int) _desc.weights[0].size();
     uint32_t outputWidth = (uint32_t) _desc.biases.size();
@@ -83,9 +83,6 @@ InferencePassesSptr DenseLayerGl::createCS(const LayerGenOptions& options) const
         }
     }
 
-    pass._vecBias.resize(_desc.numOutputPlanes, 0.0f);
-    for (size_t i = 0; i < _desc.biases.size(); i++) {
-        pass._vecBias[i] = (float) _desc.biases[i];
-    }
+    pass._vecBias = {_desc.biases.data(), _desc.biases.size()};
     return ret;
 }

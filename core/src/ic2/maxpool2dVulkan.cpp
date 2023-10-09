@@ -29,10 +29,10 @@ using namespace snn::dp;
 static constexpr const char* MAXPOOLING2D_VK_ASSET_NAME = "shaders/shadertemplate_vk_maxpool2d.spv";
 static constexpr const char* MAXPOOLING2D_VK_FP16_ASSET_NAME = "shaders/shadertemplate_vk_maxpool2d_fp16.spv";
 
-InferencePassesSptr MaxPooling2DLayerVulkan::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr MaxPooling2DLayerVulkan::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesVulkan());
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);
@@ -100,7 +100,7 @@ InferencePassesSptr MaxPooling2DLayerVulkan::createCS(const LayerGenOptions& opt
 
     pass.inputs  = {{"uInput", 0}};
 
-    std::vector<uchar> bytes;
+    std::vector<uint8_t> bytes;
     if (_desc.preferHp) {
         bytes = snn::loadEmbeddedAsset(MAXPOOLING2D_VK_FP16_ASSET_NAME);
     } else {

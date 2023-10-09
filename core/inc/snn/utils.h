@@ -17,6 +17,7 @@
 #include "snn/color.h"
 #include <string>
 #include <vector>
+#include <array>
 #include <chrono>
 #include <algorithm>
 #include <iomanip>
@@ -39,11 +40,14 @@
 #endif
 
 // Log macros
+#define SNN_IS_LOGGABLE(sev) \
+    (snn::isLoggable((int)snn::LogSeverity::sev, __FILE__))
+
 #define SNN_LOG(sev, ...) \
     do { \
         int severity = (int)snn::LogSeverity::sev; \
-        static int androidSeverity = 0; \
-        static bool loggable = snn::isLoggable(severity, androidSeverity, __FILE__); \
+        thread_local static int androidSeverity = 0; \
+        thread_local static bool loggable = snn::isLoggable(severity, androidSeverity, __FILE__); \
         if (loggable) { \
             snn::log(__FILE__, __LINE__, __FUNCTION__, severity, androidSeverity, __VA_ARGS__); \
         } \
@@ -63,10 +67,10 @@
 #define SNN_LOG_EVERY_N_SEC(interval, sev, ...) \
     do { \
         int severity = (int)snn::LogSeverity::sev; \
-        static int androidSeverity = 0; \
-        static bool loggable = snn::isLoggable(severity, androidSeverity, __FILE__); \
+        thread_local static int androidSeverity = 0; \
+        thread_local static bool loggable = snn::isLoggable(severity, androidSeverity, __FILE__); \
         if (loggable) { \
-            static snn::details::LogTimer timer____; \
+            thread_local static snn::details::LogTimer timer____; \
             if (timer____.isTimeToLog(interval)) { \
                 snn::log(__FILE__, __LINE__, __FUNCTION__, severity, androidSeverity, __VA_ARGS__); \
             } \
@@ -75,10 +79,10 @@
 #define SNN_LOG_FIRST_N_TIMES(n, sev, ...) \
     do { \
         int severity = (int)snn::LogSeverity::sev; \
-        static int androidSeverity = 0; \
-        static bool loggable = snn::isLoggable(severity, androidSeverity, __FILE__); \
+        thread_local static int androidSeverity = 0; \
+        thread_local static bool loggable = snn::isLoggable(severity, androidSeverity, __FILE__); \
         if (loggable) { \
-            static int counter__ = 0; \
+            thread_local static int counter__ = 0; \
             if (counter__++ < (n)) { \
                 snn::log(__FILE__, __LINE__, __FUNCTION__, severity, androidSeverity, __VA_ARGS__); \
             } \
@@ -135,6 +139,7 @@ enum class LogSeverity {
 // Utility functions for half precision floating point
 float convertToMediumPrecision(float in);
 void convertToMediumPrecision(std::vector<float>& in);
+void convertToMediumPrecision(float* in, size_t size);
 void convertToMediumPrecision(std::vector<double>& in);
 float convertToHighPrecision(uint16_t in);
 
@@ -142,6 +147,7 @@ void getByteRepresentation(float in, std::vector<unsigned char>& byteRep, bool f
 
 // Log functions
 bool isLoggable(int severity, int& androidSeverity, const char* file);
+bool isLoggable(int severity, const char* file);
 void log(const char* file, int line, const char* function, int severity, int androidSeverity, const char* format, ...);
 
 [[noreturn]] void rip();
@@ -209,69 +215,24 @@ struct ArrayParamAllocator {
     std::tuple<Args...> params;
 };
 
-// This class does not move or copy elements at all. So the class T can have both move and copy operators deleted.
-template<typename T, typename A = ArrayAllocator<T>>
-class FixedSizeArray {
-    T* _ptr      = nullptr;
+template<typename T>
+class FixedSizeArrayRef {
+protected:
+    T* _ptr = nullptr;
     size_t _size = 0;
-    A _allocator;
 
-public:
-    FixedSizeArray(A a = A())
-        : _allocator(a)
+    FixedSizeArrayRef()
+        : _ptr(nullptr)
+        , _size(0U)
     {}
 
-    FixedSizeArray(size_t n, A a = A())
-        : _allocator(a)
+
+public:
+    FixedSizeArrayRef(T* ptr, size_t n)
+        : _ptr(ptr)
+        , _size(n)
     {
-        allocate(n);
-    }
-
-    SNN_NO_COPY(FixedSizeArray);
-
-    // can move
-    FixedSizeArray(FixedSizeArray&& that) {
-        _ptr       = that._ptr;
-        that._ptr  = nullptr;
-        _size      = that._size;
-        that._size = 0;
-        _allocator = that._allocator;
-    }
-
-    FixedSizeArray& operator=(FixedSizeArray&& that) {
-        if (this != &that) {
-            deallocate();
-            _ptr       = that._ptr;
-            that._ptr  = nullptr;
-            _size      = that._size;
-            that._size = 0;
-            _allocator = that._allocator;
-        }
-        return *this;
-    }
-
-    ~FixedSizeArray() { deallocate(); }
-
-    void allocate(size_t n) {
-        if (n == _size) {
-            return;
-        }
-        deallocate();
-        _ptr  = _allocator.allocate(n);
-        _size = n;
-    }
-
-    void allocate(size_t n, A a) {
-        _allocator = a;
-        allocate(n);
-    }
-
-    void deallocate() {
-        if (_ptr) {
-            _allocator.deallocate(_ptr, _size);
-            _ptr = nullptr;
-        }
-        _size = 0;
+        SNN_ASSERT(ptr && n > 0);
     }
 
     bool empty() const { return !_ptr; }
@@ -297,6 +258,70 @@ public:
     auto operator[](size_t index) -> T& {
         SNN_ASSERT(index < _size);
         return _ptr[index];
+    }
+};
+
+// This class does not move or copy elements at all. So the class T can have both move and copy operators deleted.
+template<typename T, typename A = ArrayAllocator<T>>
+class FixedSizeArray : public FixedSizeArrayRef<T> {
+    A _allocator;
+
+public:
+    FixedSizeArray(A a = A())
+        : _allocator(a)
+    {}
+
+    FixedSizeArray(size_t n, A a = A())
+        : _allocator(a)
+    {
+        allocate(n);
+    }
+
+    SNN_NO_COPY(FixedSizeArray);
+
+    // can move
+    FixedSizeArray(FixedSizeArray&& that) {
+        this->_ptr = that._ptr;
+        that._ptr  = nullptr;
+        this->_size = that._size;
+        that._size = 0;
+        _allocator = that._allocator;
+    }
+
+    FixedSizeArray& operator=(FixedSizeArray&& that) {
+        if (this != &that) {
+            deallocate();
+            this->_ptr = that._ptr;
+            that._ptr = nullptr;
+            this->_size = that._size;
+            that._size = 0;
+            _allocator = that._allocator;
+        }
+        return *this;
+    }
+
+    ~FixedSizeArray() { deallocate(); }
+
+    void allocate(size_t n) {
+        if (n == this->_size) {
+            return;
+        }
+        deallocate();
+        this->_ptr  = _allocator.allocate(n);
+        this->_size = n;
+    }
+
+    void allocate(size_t n, A a) {
+        _allocator = a;
+        allocate(n);
+    }
+
+    void deallocate() {
+        if (this->_ptr) {
+            _allocator.deallocate(this->_ptr, this->_size);
+            this->_ptr = nullptr;
+        }
+        this->_size = 0;
     }
 };
 
@@ -552,9 +577,9 @@ private:
 
         void reset();
 
-        void print(std::stringstream& s, const size_t numLevels) const;
+        void print(std::ostream& s, const size_t numLevels) const;
 
-        void print(std::stringstream& s, size_t nameColumnWidth, size_t level, const size_t numLevels,
+        void print(std::ostream& s, size_t nameColumnWidth, size_t level, const size_t numLevels,
             std::chrono::high_resolution_clock::duration parentSum) const;
     };
 
@@ -578,15 +603,11 @@ public:
 
     void start();
 
-    void stop();
+    void stop(bool print = false, bool printStat = false);
 
-    static void reset();
+    static void reset(bool fromRoot = true);
 
-    static std::string print(size_t numLevels = 0, bool drillDownByRank = false);
-
-#ifdef PROFILING
-    static double getStdDev(const AveragerHR& a);
-#endif
+    static std::string print(size_t numLevels = 0, bool drillDownByRank = false, bool fromRoot = true);
 };
 
 // Front-end for the Timer class.
@@ -595,22 +616,56 @@ public:
 template<typename TIMER>
 class ScopedTimer {
     TIMER& _timer;
+    bool _print;
+    bool _printStat;
 
 public:
     SNN_NO_COPY(ScopedTimer);
 
-    explicit ScopedTimer(TIMER& t): _timer(t) { _timer.start(); }
+    explicit ScopedTimer(TIMER& t, bool print = false, bool printStat = false):
+        _timer(t),
+        _print(print),
+        _printStat(printStat)
+        {
+            _timer.start();
+        }
 
-    ~ScopedTimer() { _timer.stop(); }
+    ~ScopedTimer() {
+        _timer.stop(_print, _printStat);
+        if (_printStat) {
+            Timer::reset(false);
+        }
+    }
 };
 
 // Helper macro to profile calls
 // in the current scope
+// It collects statistics, but does not print anything
 #define PROFILE_TIME(name, desc) \
-    static Timer timer##name(desc); \
-    ScopedTimer scopedTimer##name(timer##name);
+    thread_local static snn::Timer timer##name(desc); \
+    snn::ScopedTimer scopedTimer##name(timer##name);
 
+// Helper macro to profile calls
+// in the current scope
+// It collects statistics and prints only current log time
+#if PROFILING || PROFILING_CPU
+#define PROFILE_TIME_AND_LOG(name, desc) \
+    thread_local static snn::Timer timer##name(desc); \
+    snn::ScopedTimer scopedTimer##name(timer##name, true);
+#else
+    #define PROFILE_TIME_AND_LOG(name, desc)
+#endif
 
+// Helper macro to profile calls
+// in the current scope
+// It collects statistics and prints it
+#if PROFILING || PROFILING_CPU
+#define PROFILE_TIME_AND_LOG_STAT(name, desc) \
+    thread_local static snn::Timer timer##name(desc); \
+    snn::ScopedTimer scopedTimer##name(timer##name, false, true);
+#else
+#define PROFILE_TIME_AND_LOG_STAT(name, desc)
+#endif
 // Helper classs for ranges
 template<class Iterator, class Sentinel>
 struct Range : std::tuple<Iterator, Sentinel> {
@@ -626,6 +681,17 @@ struct Range : std::tuple<Iterator, Sentinel> {
 };
 template<class Iterator, class Sentinel>
 Range(Iterator, Sentinel) -> Range<Iterator, Sentinel>;
+
+template <typename T>
+struct ArrayCref {
+    const T* buf;
+    size_t len;
+
+    const T* data() const { return buf; }
+    size_t size() const { return len; }
+
+    const T& operator[](size_t idx) const { return buf[idx]; }
+};
 
 namespace range {
 template<class X>
@@ -658,5 +724,8 @@ bool createParentDirIfNotExists(std::string path);
 
 // Prints image pixel buffer in human readable format
 void prettyPrintHWCBuf(const uint8_t* buffer, int h, int w, int c, ColorFormat cf, FILE* fp = stdout);
+
+template<typename T>
+void printNumber(const T& n, FILE* fp = stdout);
 
 } // namespace snn

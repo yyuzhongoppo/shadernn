@@ -180,7 +180,7 @@ void AdaptiveAvgPool2dLayerGl::buildFragPostDefine(std::ostream& stream) const {
     stream << "}\n";
 }
 
-InferencePassesSptr AdaptiveAvgPool2dLayerGl::createFS(const GenericModelLayer::LayerGenOptions& options) const {
+InferencePassesUptr AdaptiveAvgPool2dLayerGl::createFS(const GenericModelLayer::LayerGenOptions& options) const {
     std::string shaderTemplateFilePath = "shaders/shadertemplate_fs_avgpooling2d.glsl";
     std::string fsTemplateCode         = loadShader(shaderTemplateFilePath.c_str());
 
@@ -211,7 +211,7 @@ InferencePassesSptr AdaptiveAvgPool2dLayerGl::createFS(const GenericModelLayer::
     buildCalcDefLogic(avgPoolLogicStream, options);
     auto avgPoolLogic = avgPoolLogicStream.str();
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(numShaderPasses);
 
@@ -274,7 +274,7 @@ InferencePassesSptr AdaptiveAvgPool2dLayerGl::createFS(const GenericModelLayer::
     return ret;
 }
 
-InferencePassesSptr AdaptiveAvgPool2dLayerGl::createCS(const GenericModelLayer::LayerGenOptions& options) const {
+InferencePassesUptr AdaptiveAvgPool2dLayerGl::createCS(const GenericModelLayer::LayerGenOptions& options) const {
     std::string shaderTemplateFilePath = "shaders/shadertemplate_cs_avgpooling2d.glsl";
     std::string csTemplateCode         = loadShader(shaderTemplateFilePath.c_str());
 
@@ -287,7 +287,7 @@ InferencePassesSptr AdaptiveAvgPool2dLayerGl::createCS(const GenericModelLayer::
     buildCalcDefLogic(avgPoolLogicStream, options);
     auto avgPoolLogic = avgPoolLogicStream.str();
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(numShaderPasses);
 

@@ -34,8 +34,8 @@
         layer##LayerGl(layer##Desc&& d): layer##Layer(std::move(d)) {} \
         virtual ~layer##LayerGl() = default; \
     protected: \
-        InferencePassesSptr createFS(const LayerGenOptions&) const override; \
-        InferencePassesSptr createCS(const LayerGenOptions&) const override; \
+        InferencePassesUptr createFS(const LayerGenOptions&) const override; \
+        InferencePassesUptr createCS(const LayerGenOptions&) const override; \
     }; \
     } \
     }
@@ -48,8 +48,8 @@
         layer##LayerVulkan(layer##Desc&& d): layer##Layer(std::move(d)) {} \
         virtual ~layer##LayerVulkan() = default; \
     protected: \
-        InferencePassesSptr createFS(const LayerGenOptions&) const override { SNN_RIP("Not implemented !"); } \
-        InferencePassesSptr createCS(const LayerGenOptions&) const override; \
+        InferencePassesUptr createFS(const LayerGenOptions&) const override { SNN_RIP("Not implemented !"); } \
+        InferencePassesUptr createCS(const LayerGenOptions&) const override; \
     }; \
     } \
     }
@@ -62,8 +62,8 @@
         layer##LayerVulkan(layer##Desc&& d): ShaderLayer(std::move(d)) { SNN_RIP("Not implemented !"); } \
         virtual ~layer##LayerVulkan() = default; \
     protected: \
-        InferencePassesSptr createFS(const LayerGenOptions&) const override { SNN_RIP("Not implemented !"); } \
-        InferencePassesSptr createCS(const LayerGenOptions&) const override { SNN_RIP("Not implemented !"); } \
+        InferencePassesUptr createFS(const LayerGenOptions&) const override { SNN_RIP("Not implemented !"); } \
+        InferencePassesUptr createCS(const LayerGenOptions&) const override { SNN_RIP("Not implemented !"); } \
     }; \
     } \
     }
@@ -145,6 +145,13 @@ DECLARE_SHADER_LAYER1(Pad);
 DECLARE_SHADER_LAYER1(BatchNormalization);
 DECLARE_SHADER_LAYER1(InstanceNorm);
 DECLARE_SHADER_LAYER1(YOLO);
+DECLARE_SHADER_LAYER1(BackwardWarping);
+DECLARE_SHADER_LAYER1(AvgPool2DCat);
+DECLARE_SHADER_LAYER1(Inplacement);
+DECLARE_SHADER_LAYER1(ResolveHistory);
+DECLARE_SHADER_LAYER1(Reweighting);
+DECLARE_SHADER_LAYER1(SubstractAbs);
+DECLARE_SHADER_LAYER1(UpSamplingUV);
 DECLARE_SHADER_LAYER1(Unary);
 
 } // namespace dp

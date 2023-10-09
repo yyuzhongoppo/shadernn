@@ -43,7 +43,9 @@ struct InstanceNormDesc : GenericConvDesc {
 // This is a base class to generates a shader for an instance normalization
 class InstanceNormLayer : public GenericConvolutionLayer {
 public:
-    InstanceNormLayer(InstanceNormDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {}
+    InstanceNormLayer(InstanceNormDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {
+        _pDesc = &_desc;
+    }
     virtual ~InstanceNormLayer() = default;
     virtual InferenceGraph::Transform getOutputScaleDimAdjustment() const override {
         return {0, {{1.0f, 1.0f, 0.0f, 0.0f}} };

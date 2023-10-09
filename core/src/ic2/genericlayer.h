@@ -22,12 +22,11 @@
 #include "inferencepass.h"
 #include "renderpass.h"
 #include "modelparser.h"
+#include "conv2dSupport.h"
 #include <glm/glm.hpp>
 #include <string>
 #include <vector>
 #include <memory>
-#include <opencv2/core/mat.hpp>
-#include <opencv2/opencv.hpp>
 
 static std::vector<int> mLocalSize {4, 8, 4}; // For snapdragon 8Gen 2
 
@@ -40,7 +39,7 @@ struct CommonLayerDesc {
     uint32_t numInputPlanes;
     uint32_t kernelSize = 0; // move here for layer name
     MRTMode mrtMode = MRTMode::NO;
-    WeightAccessMethod weightMode = WeightAccessMethod::CONSTANTS;
+    WeightAccessMethod weightMode = DEFAULT_WEIGHT_ASSESS_METHOD;
     // The flag to use FP16 calculations
     bool preferHp = false;
     bool isInputLayer = false;
@@ -71,21 +70,19 @@ protected:
     std::vector<InferenceGraph::IODesc> inputDims;
     // Collection of inference passes
     // It holds data for each render pass
-    InferencePassesSptr passes;
+    InferencePassesUptr passes;
 
 private:
     // Collection of render passes
     std::vector<std::shared_ptr<RenderPass>> renderPasses;
 
 public:
-    std::vector<std::shared_ptr<GenericModelLayer>> prevLayers;
+    std::vector<std::weak_ptr<GenericModelLayer>> prevLayers;
     std::vector<std::shared_ptr<GenericModelLayer>> nextLayers;
 
-    GenericModelLayer(CommonLayerDesc d): _desc(d) {}
+    GenericModelLayer(const CommonLayerDesc& d): _desc(d) {}
 
-    GenericModelLayer(const GenericModelLayer&) = delete;
-
-    GenericModelLayer& operator=(const GenericModelLayer&) = delete;
+    SNN_NO_COPY(GenericModelLayer);
 
     virtual ~GenericModelLayer();
 
@@ -96,6 +93,10 @@ public:
     void setName(const std::string& genericName);
 
     const InferencePasses* getPasses() const {
+        return passes.get();
+    }
+
+    InferencePasses* getPasses() {
         return passes.get();
     }
 
@@ -133,28 +134,47 @@ public:
 
     virtual bool isTransition() const { return false; }
 
+    // Release resources after they were copied to GPU
+    virtual void releaseResources() {}
+
 private:
     // Defines output shape transformation
     virtual InferenceGraph::Transform getOutputScaleDimAdjustment() const = 0;
 };
 
 struct GenericConvDesc : CommonLayerDesc {
-    std::vector<cv::Mat> weightsCvM;
-    std::vector<double> biases; // make it float?
+    GenericConvDesc()
+        : uptrWeights(std::make_unique<Conv2DSupport::WeightsTensor>())
+    {}
+
+    // No copy
+    SNN_NO_COPY(GenericConvDesc);
+    // Can move
+    GenericConvDesc(GenericConvDesc&& other) = default;
+
+    std::unique_ptr<Conv2DSupport::WeightsTensor> uptrWeights;
+    std::vector<float> biases;
     std::string activation;
     uint32_t kernelSize = 0;
     uint32_t stride     = 0;
+
+    Conv2DSupport::WeightsTensor& weightsConv() {
+        return *uptrWeights;
+    }
+
+    const Conv2DSupport::WeightsTensor& weightsConv() const {
+        return *uptrWeights;
+    }
+
     void parse(ModelParser& parser, int layerId) { CommonLayerDesc::parse(parser, layerId); }
 };
 
 // This class declares a layer that is implemented through GPU shader.
 class ShaderLayer : public GenericModelLayer {
 public:
-    ShaderLayer(CommonLayerDesc d): GenericModelLayer(d) {}
+    ShaderLayer(const CommonLayerDesc& d): GenericModelLayer(d) {}
 
-    ShaderLayer(const ShaderLayer&) = delete;
-
-    ShaderLayer& operator=(const ShaderLayer&) = delete;
+    SNN_NO_COPY(ShaderLayer);
 
     virtual ~ShaderLayer() = default;
 
@@ -172,10 +192,16 @@ private:
     virtual InferenceGraph::Transform getOutputScaleDimAdjustment() const override { return {0, {{1.0f, 1.0f, 0.0f, 0.0f}}}; }
 
     // Creates a collection of inference passes for Fragment shader
-    virtual InferencePassesSptr createFS(const LayerGenOptions&) const = 0;
+    virtual InferencePassesUptr createFS(const LayerGenOptions&) const = 0;
 
     // Creates a collection of inference passes for Compute shader
-    virtual InferencePassesSptr createCS(const LayerGenOptions&) const = 0;
+    virtual InferencePassesUptr createCS(const LayerGenOptions&) const = 0;
+
+    // Release resources used to create Compute Shader and not needed anymore
+    virtual void releaseCsResources() {};
+
+    // Release resources used to create Fragment Shader and not needed anymore
+    virtual void releaseFsResources() {};
 
     InferenceGraph::LayerExecutionType executeBackend = InferenceGraph::LayerExecutionType::GPU_FS;
 };
@@ -183,17 +209,25 @@ private:
 // This is a base class for all convolutional layers
 class GenericConvolutionLayer : public ShaderLayer {
 public:
-    GenericConvolutionLayer(GenericConvDesc d): ShaderLayer(d), _desc(std::move(d)) {}
-    ~GenericConvolutionLayer() {}
+    GenericConvolutionLayer(const CommonLayerDesc& d): ShaderLayer(d) {}
+
+    SNN_NO_COPY(GenericConvolutionLayer);
+
+    virtual ~GenericConvolutionLayer() = default;
+
+    virtual void releaseResources() override;
 
 protected:
+    GenericConvDesc* _pDesc = nullptr;
+
     struct WeightContants {
         std::string text;
         std::vector<glm::vec4> values;
     };
 
 private:
-    GenericConvDesc _desc;
+    // Release resources used to create Compute Shader and not needed anymore
+    virtual void releaseCsResources() override;
 };
 
 } // namespace dp

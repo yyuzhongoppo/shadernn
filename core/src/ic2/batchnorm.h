@@ -38,7 +38,9 @@ struct BatchNormalizationDesc : GenericConvDesc {
 // This is a base class to generates a shader for batch normalization function
 class BatchNormalizationLayer : public GenericConvolutionLayer {
 public:
-    BatchNormalizationLayer(BatchNormalizationDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {}
+    BatchNormalizationLayer(BatchNormalizationDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {
+        _pDesc = &_desc;
+    }
     virtual ~BatchNormalizationLayer() = default;
 
     virtual InferenceGraph::Transform getOutputScaleDimAdjustment() const override {

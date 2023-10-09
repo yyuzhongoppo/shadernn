@@ -64,7 +64,7 @@ void BatchNormalizationLayerGl::buildPreDefine(std::ostringstream& stream, const
     }
 }
 
-InferencePassesSptr BatchNormalizationLayerGl::createFS(const LayerGenOptions& options) const {
+InferencePassesUptr BatchNormalizationLayerGl::createFS(const LayerGenOptions& options) const {
     std::string shaderFilePath = BATCHNORM_FS_ASSET_NAME;
     std::string fsTemplateCode = loadShader(shaderFilePath.c_str());
 
@@ -80,7 +80,7 @@ InferencePassesSptr BatchNormalizationLayerGl::createFS(const LayerGenOptions& o
     const int numBatchNormParameters = 4;
     std::vector<std::ostringstream> batchNormalizationConstants(numBatchNormParameters * _desc.numOutputPlanes);
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(numShaderPasses);
     for (uint32_t i = 0, j = 0; i < numShaderPasses; ++i, j += 4) {
@@ -134,10 +134,10 @@ InferencePassesSptr BatchNormalizationLayerGl::createFS(const LayerGenOptions& o
     return ret;
 }
 
-InferencePassesSptr BatchNormalizationLayerGl::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr BatchNormalizationLayerGl::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(1);
@@ -227,28 +227,21 @@ InferencePassesSptr BatchNormalizationLayerGl::createCS(const LayerGenOptions& o
 
     SNN_LOGV("input:%d:%d:%d, output:%d:%d:%d", inputWidth, inputHeight, inputDepth, outputWidth, outputHeight, outputDepth);
 
-    std::vector<float> bnDataVector;
-    std::string bnString;
+    const auto& betaVector = _desc.batchNormalization.at("beta");
+    SNN_ASSERT(betaVector.size() == _desc.numOutputPlanes);
+    pass._vecBeta = {betaVector.data(), betaVector.size()};
 
-    pass._vecBeta.resize(_desc.numOutputPlanes);
-    bnString     = "beta";
-    bnDataVector = _desc.batchNormalization.at(bnString);
-    memcpy(pass._vecBeta.data(), bnDataVector.data(), _desc.numOutputPlanes * 4);
+    const auto& gammaVector = _desc.batchNormalization.at("gamma");
+    SNN_ASSERT(gammaVector.size() == _desc.numOutputPlanes);
+    pass._vecGamma = {gammaVector.data(), gammaVector.size()};
 
-    pass._vecGamma.resize(_desc.numOutputPlanes);
-    bnString     = "gamma";
-    bnDataVector = _desc.batchNormalization.at(bnString);
-    memcpy(pass._vecGamma.data(), bnDataVector.data(), _desc.numOutputPlanes * 4);
+    const auto& meanVector = _desc.batchNormalization.at("movingMean");
+    SNN_ASSERT(meanVector.size() == _desc.numOutputPlanes);
+    pass._vecMean = {meanVector.data(), meanVector.size()};
 
-    pass._vecMean.resize(_desc.numOutputPlanes);
-    bnString     = "movingMean";
-    bnDataVector = _desc.batchNormalization.at(bnString);
-    memcpy(pass._vecMean.data(), bnDataVector.data(), _desc.numOutputPlanes * 4);
-
-    pass._vecVariance.resize(_desc.numOutputPlanes);
-    bnString     = "movingVariance";
-    bnDataVector = _desc.batchNormalization.at(bnString);
-    memcpy(pass._vecVariance.data(), bnDataVector.data(), _desc.numOutputPlanes * 4);
+    const auto& varVector = _desc.batchNormalization.at("movingVariance");
+    SNN_ASSERT(varVector.size() == _desc.numOutputPlanes);
+    pass._vecVariance = {varVector.data(), varVector.size()};
 
     pass.weightMeta.clear();
     pass.weightMeta.push_back((uint32_t) 0); // 0 means Conv2D layout, 1 means DepthWise Conv2D

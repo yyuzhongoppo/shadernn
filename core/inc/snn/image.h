@@ -40,6 +40,14 @@ union FP16 {
     };
     float toFloat() const;
     static float toFloat(uint16_t u) { return ((FP16*) &u)->toFloat(); }
+
+    FP16() = default;
+
+    FP16(uint16_t u_) 
+        : u(u_)
+    {}
+
+    operator float() const { return toFloat(); }
 };
 
 union FP32 {
@@ -57,7 +65,7 @@ union FP32 {
         FP32 magic = {15 << 23};
         FP32 f32;
         f32.flt  = flt;
-        FP16 o = {0};
+        FP16 o(0);
 
         auto sign = f32.sign;
         f32.sign  = 0;
@@ -83,7 +91,9 @@ union FP32 {
         return o.u;
     }
 
-    static uint16_t toHalf(float f32) { return ((FP32*) &f32)->toHalf(); }
+    static uint16_t toHalf(float f32) { return ((const FP32*) &f32)->toHalf(); }
+
+    operator uint16_t() const { return toHalf(); }
 };
 
 union Rgba8 {

@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 - 2022 OPPO. All rights reserved.
+/* Copyright (C) 2020 - 2022 OPPO. All rights reserved.s
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,12 +28,12 @@ using namespace snn::dp;
 
 static constexpr const char* SUBPIXEL_MERGE_FS_ASSET_NAME = "shaders/shadertemplate_fs_subpixel.glsl";
 
-InferencePassesSptr SubpixelLayerGl::createFS(const LayerGenOptions&) const {
+InferencePassesUptr SubpixelLayerGl::createFS(const LayerGenOptions&) const {
     if (_desc.numInputPlanes <= 1) {
         SNN_LOGD("Input number is less and equal to 1: layer = %s", name.c_str());
     }
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
     std::ostringstream preDefine;
     std::ostringstream postDefine;
 
@@ -75,7 +75,7 @@ InferencePassesSptr SubpixelLayerGl::createFS(const LayerGenOptions&) const {
     return ret;
 }
 
-InferencePassesSptr SubpixelLayerGl::createCS(const LayerGenOptions&) const {
+InferencePassesUptr SubpixelLayerGl::createCS(const LayerGenOptions&) const {
     SNN_LOGW("Compute shader not implemented! Falling back to fragment shader.");
     return {};
 }

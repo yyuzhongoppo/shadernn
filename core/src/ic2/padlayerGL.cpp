@@ -57,7 +57,7 @@ void PadLayerGl::buildPreDefine(std::ostringstream& stream, const LayerGenOption
     stream << "#define PADDING_R " << offsets[3] << std::endl;
 }
 
-InferencePassesSptr PadLayerGl::createFS(const LayerGenOptions& options) const {
+InferencePassesUptr PadLayerGl::createFS(const LayerGenOptions& options) const {
     std::ostringstream shaderFilePathStream;
     std::string fileName = "/shadertemplate_fs_pad_RGBA.glsl";
     shaderFilePathStream << "shaders" << fileName;
@@ -75,7 +75,7 @@ InferencePassesSptr PadLayerGl::createFS(const LayerGenOptions& options) const {
 
     std::string preDefine = preDefineStream.str();
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(numShaderPasses);
     for (uint32_t i = 0, j = 0; i < numShaderPasses; ++i, j += 4) {
@@ -121,9 +121,9 @@ InferencePassesSptr PadLayerGl::createFS(const LayerGenOptions& options) const {
     return ret;
 }
 
-InferencePassesSptr PadLayerGl::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr PadLayerGl::createCS(const LayerGenOptions& options) const {
     (void) options;
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(1);

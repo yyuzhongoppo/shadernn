@@ -266,6 +266,7 @@ void ManagedRawImage::store(const void* buffer, size_t length) {
 }
 
 ManagedRawImage ManagedRawImage::loadFromFile(const std::string& filename, bool fromBin) {
+    SNN_LOGI("Opening file: %s", filename.c_str());
     std::ifstream file(filename, std::ios::binary);
     if (!file.good()) {
         SNN_RIP("Failed to open image file %s", filename.c_str());
@@ -281,7 +282,6 @@ ManagedRawImage ManagedRawImage::loadFromFile(const std::string& filename, bool 
     }
     int w, h, c, n_comps;
     void* pixels;
-    SNN_LOGI("Opening file: %s", filename.c_str());
     if (!fromBin) {
         stbi_info(filename.c_str(), &w, &h, &n_comps);
         stbi_set_flip_vertically_on_load(false);

@@ -30,10 +30,10 @@ using namespace snn::dp;
 static constexpr const char* AVGPOOL2D_VK_ASSET_NAME = "shaders/shadertemplate_vk_avgpool2d.spv";
 static constexpr const char* AVGPOOL2D_VK_FP16_ASSET_NAME = "shaders/shadertemplate_vk_avgpool2d_fp16.spv";
 
-InferencePassesSptr AveragePooling2DLayerVulkan::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr AveragePooling2DLayerVulkan::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesVulkan());
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);
@@ -101,7 +101,7 @@ InferencePassesSptr AveragePooling2DLayerVulkan::createCS(const LayerGenOptions&
 
     pass.inputs  = {{"uInput", 0}};
 
-    std::vector<uchar> bytes;
+    std::vector<uint8_t> bytes;
     if (_desc.preferHp) {
         bytes = snn::loadEmbeddedAsset(AVGPOOL2D_VK_FP16_ASSET_NAME);
         pass.source = AVGPOOL2D_VK_FP16_ASSET_NAME;

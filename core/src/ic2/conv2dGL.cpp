@@ -16,6 +16,7 @@
 #include "conv2dGL.h"
 #include "layerFactory.h"
 #include "inferencepassGL.h"
+#include "conv2dSupport.h"
 #include <string>
 #include <vector>
 #include <cstring>
@@ -47,23 +48,20 @@ static uint32_t getChannelsPerPass(snn::MRTMode mrtMode) {
 }
 
 Conv2DLayerGl::Conv2DLayerGl(Conv2DDesc&& d) : Conv2DLayer(std::move(d)) {
-    if (_desc.numInputPlanes <= MAX_PLANES_FOR_WEIGHTS_IN_CONSTANTS) {
+    if (_desc.numInputPlanes <= MAX_PLANES_FOR_WEIGHTS_IN_CONSTANTS && snn::DEFAULT_WEIGHT_ASSESS_METHOD == snn::WeightAccessMethod::CONSTANTS) {
         _desc.useUniformShaders = false;
         _desc.weightMode        = snn::WeightAccessMethod::CONSTANTS;
     }
-
-    biases = _desc.biases;
 
     if (_desc.weightMode == snn::WeightAccessMethod::CONSTANTS) {
         _desc.useUniformShaders = false;
     }
 
-    if (biases.size() % 4 != 0) {
-        auto initSize  = biases.size();
-        auto finalSize = 4 * ((uint32_t)(biases.size() / 4) + 1);
-        for (std::size_t i = initSize; i < finalSize; i++) {
-            biases.push_back(0.0);
-        }
+    if (_desc.biases.size() % 4 != 0) {
+        // This padding logic is needed only for fragment shader.
+        // TODO: Isolate this logic to fragment shader only
+        size_t finalSize = ROUND_UP_DIV_4(_desc.biases.size());
+        _desc.biases.resize(finalSize, 0.0f);
     }
     isRange01 = _desc.isRange01;
 }
@@ -76,15 +74,14 @@ void Conv2DLayerGl::setTextureWeights() const {
     for (std::size_t filter = 0; filter < _desc.numOutputPlanes; filter++) {
         std::vector<float> weightVal(4 * _desc.kernelSize * _desc.kernelSize, 0.0);
         for (std::size_t filterPlane = 0; filterPlane < _desc.numInputPlanes; filterPlane++) {
-            std::size_t idx = filter * _desc.numInputPlanes + filterPlane;
             for (std::size_t i = 0; i < _desc.kernelSize; i++) {
                 for (std::size_t j = 0; j < _desc.kernelSize; j++) {
                     std::size_t weightValIdx = (4 * _desc.kernelSize * i) + (4 * j) + (filterPlane % 4);
                     if (_desc.preferHp) {
                         uint16_t* fp16Addr = (uint16_t*)weightVal.data();
-                        *(fp16Addr + weightValIdx) = FP32::toHalf(_desc.weightsCvM[idx].at<float>(i, j));
+                        *(fp16Addr + weightValIdx) = FP32::toHalf(_desc.weightsConv()[filter][filterPlane][i][j]);
                     } else {
-                        weightVal[weightValIdx] = _desc.weightsCvM[idx].at<float>(i, j);
+                        weightVal[weightValIdx] = _desc.weightsConv()[filter][filterPlane][i][j];
                     }
                 }
             }
@@ -128,12 +125,11 @@ void Conv2DLayerGl::setBufferWeights() const {
     for (std::size_t filter = 0; filter < _desc.numOutputPlanes; filter++) {
         std::vector<uint8_t> weightVal(byteSize * 4 * _desc.numInputPlanes * _desc.kernelSize * _desc.kernelSize, 0);
         for (std::size_t filterPlane = 0; filterPlane < _desc.numInputPlanes; filterPlane++) {
-            std::size_t idx = filter * _desc.numInputPlanes + filterPlane;
             for (std::size_t i = 0; i < _desc.kernelSize; i++) {
                 for (std::size_t j = 0; j < _desc.kernelSize; j++) {
                     std::size_t weightValIdx = (byteSize * 4 * _desc.kernelSize * i) + (4 * j) + (filterPlane % 4);
                     std::vector<uint8_t> byteRep;
-                    snn::getByteRepresentation(_desc.weightsCvM[idx].at<float>(i, j), byteRep, _desc.preferHp);
+                    snn::getByteRepresentation(_desc.weightsConv()[filter][filterPlane][i][j], byteRep, _desc.preferHp);
                     for (std::size_t byteIdx = 0; byteIdx < byteSize; byteIdx++) {
                         weightVal[weightValIdx + byteIdx] = byteRep.at(byteIdx);
                     }
@@ -310,7 +306,7 @@ void Conv2DLayerGl::getWeightConstantsIndividualInputs(std::vector<std::ostrings
 
 void Conv2DLayerGl::getAllWeightConstants(std::vector<std::ostringstream>& weightConstants, uint32_t numShaderPasses) const {
     // TODO: This code is unoptimized; we can do this transposal in place instead
-    auto& weightMatrices = _desc.weightsCvM;
+    const auto& weightMatrices = _desc.weightsConv();
     SNN_LOGD("Size of the weight matrices (Should match %d x %d): %d", _desc.numInputPlanes, _desc.numOutputPlanes, weightMatrices.size());
 
     auto nWeightStride = _desc.kernelSize * _desc.kernelSize;
@@ -327,14 +323,14 @@ void Conv2DLayerGl::getAllWeightConstants(std::vector<std::ostringstream>& weigh
                 for (size_t i = 0; i < _desc.kernelSize; i++) {
                     for (size_t j = 0; j < _desc.kernelSize; j++) {
                         size_t linearDim           = 4 * (i * _desc.kernelSize + j);
-                        dummyWeights.at(linearDim) = weightMatrices[idxOutput * _desc.numInputPlanes + idxInput].at<float>(i, j);
+                        dummyWeights.at(linearDim) = weightMatrices[idxOutput][idxInput][i][j];
                     }
                 }
                 std::memcpy(vWeightMatrices[idxOutput].data(), dummyWeights.data(), 4 * nWeightStride * sizeof(float));
             } else {
                 SNN_ASSERT(startOffset < nWeightStride * _desc.numInputPlanes);
                 SNN_ASSERT(idxOutput * _desc.numInputPlanes + idxInput < weightMatrices.size());
-                std::memcpy(&vWeightMatrices[idxOutput][startOffset], weightMatrices[idxOutput * _desc.numInputPlanes + idxInput].data,
+                std::memcpy(&vWeightMatrices[idxOutput][startOffset], weightMatrices[idxOutput][idxInput].data(),
                             _desc.kernelSize * _desc.kernelSize * sizeof(float));
             }
         }
@@ -832,7 +828,7 @@ void Conv2DLayerGl::buildComputePostDefine(std::ostream& stream, uint32_t output
     stream << "}\n";
 }
 
-InferencePassesSptr Conv2DLayerGl::createFS(const LayerGenOptions& options) const {
+InferencePassesUptr Conv2DLayerGl::createFS(const LayerGenOptions& options) const {
     std::ostringstream shaderFilePathStream;
 
     std::string shaderFilePath = CONV2D_FS_ASSET_NAME;
@@ -877,14 +873,14 @@ InferencePassesSptr Conv2DLayerGl::createFS(const LayerGenOptions& options) cons
     std::vector<std::ostringstream> biasStr(numShaderPasses);
     getBiasConstants(biasStr, numShaderPasses);
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(numShaderPasses);
-    for (uint32_t i = 0, j = 0; i < numShaderPasses; ++i, j += channelsPerPass) {
+    for (uint32_t i = 0, j = 0, planeCount = 0, planeOffset = 0; i < numShaderPasses; ++i, j += channelsPerPass, planeOffset += planeCount) {
         SNN_ASSERT(_desc.numOutputPlanes >= i * channelsPerPass);
         uint32_t outputChannels = std::min(channelsPerPass, _desc.numOutputPlanes - i * channelsPerPass);
         SNN_LOGV("Shader pass: %d, total output channels: %d, output channels per pass: %d", i, _desc.numOutputPlanes, outputChannels);
-        uint32_t planeCount = DIV_4_ROUND_UP(outputChannels);
+        planeCount = DIV_4_ROUND_UP(outputChannels);
         std::ostringstream rgbaDefine;
         for (std::size_t planeIdx = 0; planeIdx < planeCount; planeIdx++) {
             std::size_t remainingPlanes = static_cast<uint32_t>(std::min(4, static_cast<int>(outputChannels) - static_cast<int>(planeIdx) * 4));
@@ -953,7 +949,7 @@ InferencePassesSptr Conv2DLayerGl::createFS(const LayerGenOptions& options) cons
         pass.inputs = {{"inputTextures", 0}}; // Input is currently hard coded in GLSL file.
         if (_desc.useUniformShaders) {
             for (int k = 0; k < DIV_4_ROUND_UP(outputChannels); k++) {
-                glm::vec4 dummyBias = {biases[j + (4 * k)], biases[j + (4 * k) + 1], biases[j + (4 * k) + 2], biases[j + (4 * k) + 3]};
+                glm::vec4 dummyBias = {_desc.biases[j + (4 * k)], _desc.biases[j + (4 * k) + 1], _desc.biases[j + (4 * k) + 2], _desc.biases[j + (4 * k) + 3]};
                 if ((DIV_4_ROUND_UP(outputChannels) == 1) || k == 0) {
                     pass.uniforms["bias"] = dummyBias;
                 } else {
@@ -984,7 +980,7 @@ InferencePassesSptr Conv2DLayerGl::createFS(const LayerGenOptions& options) cons
                 }
             }
         }
-        pass.program = InferencePassGl::FsProgram {planeCount * i, planeCount};
+        pass.program = InferencePassGl::FsProgram {planeOffset, planeCount};
 
         if (_desc.useUniformShaders) {
             pass.weightMeta.clear();
@@ -997,46 +993,27 @@ InferencePassesSptr Conv2DLayerGl::createFS(const LayerGenOptions& options) cons
             pass.weightMeta.push_back((uint32_t)_desc.numOutputPlanes);
             pass.weightMeta.push_back((uint32_t)channelsPerPass);
             pass.weightMeta.push_back((uint32_t)(channelsPerPass>>2) * i);
-            uint32_t start = j * _desc.numInputPlanes;
-            uint32_t end = start + outputChannels *  _desc.numInputPlanes;
-            pass.modelWeights = {_desc.weightsCvM.begin() + start, _desc.weightsCvM.begin() + end};
+            pass.uptrWeightsConvView = std::make_unique<Conv2DSupport::WeightsTensorConstView>(
+                _desc.weightsConv().view().slice(
+                    {
+                        {j, j + outputChannels},
+                        {},
+                        {},
+                        {},
+                    }
+                )
+            );
         }
     }
     return ret;
 }
 
-static bool oihw2hwo4i4fp16(std::vector<cv::Mat> inputWeights, std::vector<float>& outVec, int inChannels, int outChannels, int fw, int fh, int unit = 4) {
-    int alignedWeightSize = ROUND_UP(outChannels, unit) * fw * fh * ROUND_UP(inChannels, unit)/2;
-
-    SNN_LOGD("Test:%s:%d, %d, %d, %d, %d, all: %d\n", __FILENAME__, __LINE__, inChannels, outChannels, fw, fh, alignedWeightSize);
-
-    outVec.clear();
-    outVec.resize(alignedWeightSize);
-    uint16_t* out    = (uint16_t*) outVec.data();
-    int planeSize = ROUND_UP(outChannels, unit) * ROUND_UP(inChannels, unit);
-    memset(out, 0, alignedWeightSize * sizeof(float));
-    for (int b = 0; b < outChannels; ++b) {
-        int b_4 = b / unit;
-        int mx  = b % unit;
-        for (int d = 0; d < inChannels; ++d) {
-            for (int y = 0; y < fh; ++y) {
-                for (int x = 0; x < fw; ++x) {
-                    int base                                 = (y * fw + x) * planeSize;
-                    int inSize                               = ROUND_UP(inChannels, unit) * unit;
-                    out[base + inSize * b_4 + d * unit + mx] = FP32::toHalf(inputWeights[b * inChannels + d].at<float>(y * fw + x));
-                }
-            }
-        }
-    }
-    return 0;
-}
-
 #define TEXTURE_WEIGHTS
 
-InferencePassesSptr Conv2DLayerGl::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr Conv2DLayerGl::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(1);
@@ -1190,39 +1167,29 @@ InferencePassesSptr Conv2DLayerGl::createCS(const LayerGenOptions& options) cons
     SNN_LOGV("input:%d:%d:%d, output:%d:%d:%d", inputWidth, inputHeight, inputDepth, outputWidth, outputHeight, outputDepth);
 
     if (_desc.preferHp) {
-        oihw2hwo4i4fp16(_desc.weightsCvM, pass._vecWeights, _desc.numInputPlanes, _desc.numOutputPlanes, kernel, kernel);
+        oihw2hwo4i4fp16(_desc.weightsConv(), pass._vecWeights, _desc.numInputPlanes, _desc.numOutputPlanes, kernel, kernel);
     } else {
-        oihw2hwo4i4(_desc.weightsCvM, pass._vecWeights, _desc.numInputPlanes, _desc.numOutputPlanes, kernel, kernel);
+        oihw2hwo4i4(_desc.weightsConv(), pass._vecWeights, _desc.numInputPlanes, _desc.numOutputPlanes, kernel, kernel);
     }
 
-    pass._vecBias.resize(_desc.numOutputPlanes, 0.0f);
-    for (size_t i = 0; i < _desc.biases.size(); i++) {
-        pass._vecBias[i] = (float) _desc.biases[i];
-    }
+    pass._vecBias = {_desc.biases.data(), _desc.biases.size()};
 
     if (_desc.useBatchNormalization) {
-        std::vector<float> bnDataVector;
-        std::string bnString;
+        const auto& betaVector = _desc.batchNormalization.at("beta");
+        SNN_ASSERT(betaVector.size() == _desc.numOutputPlanes);
+        pass._vecBeta = {betaVector.data(), betaVector.size()};
 
-        pass._vecBeta.resize(_desc.numOutputPlanes);
-        bnString     = "beta";
-        bnDataVector = _desc.batchNormalization.at(bnString);
-        std::memcpy(pass._vecBeta.data(), bnDataVector.data(), _desc.numOutputPlanes * 4);
+        const auto& gammaVector = _desc.batchNormalization.at("gamma");
+        SNN_ASSERT(gammaVector.size() == _desc.numOutputPlanes);
+        pass._vecGamma = {gammaVector.data(), gammaVector.size()};
 
-        pass._vecGamma.resize(_desc.numOutputPlanes);
-        bnString     = "gamma";
-        bnDataVector = _desc.batchNormalization.at(bnString);
-        std::memcpy(pass._vecGamma.data(), bnDataVector.data(), _desc.numOutputPlanes * 4);
+        const auto& meanVector = _desc.batchNormalization.at("movingMean");
+        SNN_ASSERT(meanVector.size() == _desc.numOutputPlanes);
+        pass._vecMean = {meanVector.data(), meanVector.size()};
 
-        pass._vecMean.resize(_desc.numOutputPlanes);
-        bnString     = "movingMean";
-        bnDataVector = _desc.batchNormalization.at(bnString);
-        std::memcpy(pass._vecMean.data(), bnDataVector.data(), _desc.numOutputPlanes * 4);
-
-        pass._vecVariance.resize(_desc.numOutputPlanes);
-        bnString     = "movingVariance";
-        bnDataVector = _desc.batchNormalization.at(bnString);
-        std::memcpy(pass._vecVariance.data(), bnDataVector.data(), _desc.numOutputPlanes * 4);
+        const auto& varVector = _desc.batchNormalization.at("movingVariance");
+        SNN_ASSERT(varVector.size() == _desc.numOutputPlanes);
+        pass._vecVariance = {varVector.data(), varVector.size()};
     }
     return ret;
 }

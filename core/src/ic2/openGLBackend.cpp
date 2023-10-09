@@ -27,6 +27,12 @@
 using namespace snn;
 using namespace snn::dp;
 
+#ifdef FS_PREFER_WEIGHTS_IN_CONSTANTS
+const WeightAccessMethod snn::DEFAULT_WEIGHT_ASSESS_METHOD = WeightAccessMethod::CONSTANTS;
+#else
+const WeightAccessMethod snn::DEFAULT_WEIGHT_ASSESS_METHOD = WeightAccessMethod::TEXTURES;
+#endif
+
 OpenGLBackend::OpenGLBackend(const snn::dp::OpenGLBackend::CreationParameters& cp) {
     _cp = cp;
 
@@ -95,9 +101,9 @@ void OpenGLBackend::initRenderPasses(snn::dp::GenericModelLayer* modelLayer, snn
         return;
     }
 
-    const InferencePassesGl* passesGl = InferencePassesGl::cast(modelLayer->getPasses());
+    InferencePassesGl* passesGl = InferencePassesGl::cast(modelLayer->getPasses());
     for (size_t i = 0; i < passesGl->passes.size(); i++) {
-        auto& pass = passesGl->passes[i];
+        snn::InferencePassGl& pass = passesGl->passes[i];
 
         std::visit(match {[&](const InferencePassGl::FsProgram&) {
                             sampler.bind(0);
@@ -127,17 +133,20 @@ void OpenGLBackend::initRenderPasses(snn::dp::GenericModelLayer* modelLayer, snn
 
         OpenGLRenderPass::CreationParameters rpcp = {
             formatString("%s pass[%d]", modelLayer->getName().c_str(), i),
-            pass,
+            std::move(pass),
             samplers,
             weightSamplersUint,
             texInputs,
             texOutputs,
         };
 
-        auto renderPass = std::make_shared<snn::OpenGLRenderPass>(rpcp);
+        auto renderPass = std::make_shared<snn::OpenGLRenderPass>(std::move(rpcp));
 
         modelLayer->getRenderPasses().push_back(renderPass);
+
+        pass.releaseResources();
     }
+    modelLayer->releaseResources();
 }
 
 void OpenGLBackend::prepareRun(snn::MixedInferenceCore::RunParameters& rp,
@@ -160,7 +169,7 @@ void OpenGLBackend::prepareRun(snn::MixedInferenceCore::RunParameters& rp,
                 // TODO: figure out why this works just fine.
                 SNN_ASSERT(tex->getDesc().format == outputDesc.format);
 #endif
-                SNN_LOGI("%d %d", tex->getDesc().width, outputDesc.width);
+                SNN_LOGV("%d %d", tex->getDesc().width, outputDesc.width);
                 SNN_ASSERT(tex->getDesc().width == outputDesc.width);
                 SNN_ASSERT(tex->getDesc().height == outputDesc.height);
                 SNN_ASSERT(tex->getDesc().depth == outputDesc.depth);

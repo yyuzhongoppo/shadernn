@@ -30,10 +30,10 @@ using namespace snn::dp;
 static constexpr const char* ADD_VK_ASSET_NAME = "shaders/shadertemplate_vk_add.spv";
 static constexpr const char* ADD_VK_FP16_ASSET_NAME = "shaders/shadertemplate_vk_add_fp16.spv";
 
-InferencePassesSptr AddLayerVulkan::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr AddLayerVulkan::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesVulkan());
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);
@@ -97,7 +97,7 @@ InferencePassesSptr AddLayerVulkan::createCS(const LayerGenOptions& options) con
 
     pass.inputs  = {{"uInput0", 0}, {"uInput1", 1}};
 
-    std::vector<uchar> bytes;
+    std::vector<uint8_t> bytes;
     if (_desc.preferHp) {
         bytes = snn::loadEmbeddedAsset(ADD_VK_FP16_ASSET_NAME);
         pass.source = ADD_VK_FP16_ASSET_NAME;

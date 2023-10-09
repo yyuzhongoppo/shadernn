@@ -208,6 +208,12 @@ void snn::convertToMediumPrecision(std::vector<double>& in) {
     }
 }
 
+void snn::convertToMediumPrecision(float* in, size_t size) {
+    for (size_t i = 0; i < size; ++i) {
+        in[i] = convertToMediumPrecision(in[i]);
+    }
+}
+
 void snn::getByteRepresentation(float in, std::vector<unsigned char>& byteRep, bool fp16) {
     if (fp16) {
         union tmp {
@@ -397,6 +403,11 @@ bool snn::isLoggable(int severity, int& androidSeverity, const char* file) {
     }
 #endif
     return false;
+}
+
+bool snn::isLoggable(int severity, const char* file) {
+    int androidSeverity = 0;
+    return snn::isLoggable(severity, androidSeverity, file);
 }
 
 static const size_t FORMAT_BUFFER_SIZE = 16 * 1024;
@@ -656,9 +667,8 @@ std::vector<uint8_t> snn::loadEmbeddedAsset(const char* assetName) {
     // On desktop system, load resouce embeded in the executable.
     auto fs   = cmrc::snn::get_filesystem();
     auto path = std::string("data/assets/") + assetName;
-    // SNN_LOGD("%s", path.c_str());
     if (!fs.is_file(path)) {
-        SNN_LOGW("image file %s not found in Asset list.", assetName);
+        SNN_LOGW("file %s not found in Asset list.", assetName);
         return {};
     }
     auto fd = fs.open(path);
@@ -760,6 +770,8 @@ snn::Timer::~Timer() {
     allTimers->erase(id);
 }
 
+#include <thread>
+
 void snn::Timer::start() {
     ++nestedLevel;
 
@@ -787,32 +799,44 @@ void snn::Timer::start() {
     }
 }
 
-void snn::Timer::stop() {
+void snn::Timer::stop(bool print, bool printStat) {
     SNN_ASSERT(nestedLevel >= 0);
     SNN_ASSERT(currentCall);
 
     auto now = std::chrono::high_resolution_clock::now();
-    auto duration = now - currentCall->begin;
+    auto callDuration = now - currentCall->begin;
     // Updating statistics for current parent
-    currentCall->ave.update(duration);
-    currentCall = parentCall;
-    parentCall.reset();
+    currentCall->ave.update(callDuration);
 
+    auto duration = now - begin;
     if (nestedLevel == 1) {
         // Updating global statistics
-        auto duration = now - begin;
         ave.update(duration);
     }
 
+    if (print) {
+        auto durationMcs = std::chrono::duration_cast<std::chrono::microseconds>(duration);
+        SNN_LOGI("Time spent in %s: %f ms", name.c_str(), durationMcs.count() / 1000.0f);
+    }
+    if (printStat) {
+        SNN_LOGI("%s", Timer::print(10, true, false).c_str());
+    }
+
+    currentCall = parentCall;
+    parentCall.reset();
     --nestedLevel;
 }
 
-void snn::Timer::reset() {
-    for (auto iter = allTimers->begin(); iter != allTimers->end(); ++iter) {
-        iter->second->ave.reset();
-    }
-    if (rootCall) {
-        rootCall->reset();
+void snn::Timer::reset(bool fromRoot) {
+    if (fromRoot) {
+        for (auto iter = allTimers->begin(); iter != allTimers->end(); ++iter) {
+            iter->second->ave.reset();
+        }
+        if (rootCall) {
+            rootCall->reset();
+        }
+    } else if (currentCall) {
+        currentCall->reset();
     }
 }
 
@@ -841,11 +865,13 @@ void Timer::AveragerMs::update(std::chrono::high_resolution_clock::duration valu
     m2 += deltaMs * delta2Ms;
 }
 
-std::string snn::Timer::print(size_t numLevels, bool drillDownByRank) {
+std::string snn::Timer::print(size_t numLevels /*= 0*/, bool drillDownByRank /*= false*/, bool fromRoot /*= true*/) {
     std::stringstream s;
     s << std::fixed;
-    if (rootCall) {
+    if (fromRoot && rootCall) {
         rootCall->print(s, numLevels);
+    } else if (currentCall) {
+        currentCall->print(s, numLevels);
     }
     if (drillDownByRank) {
         std::vector<Timer*> sorted;
@@ -859,7 +885,7 @@ std::string snn::Timer::print(size_t numLevels, bool drillDownByRank) {
         for (auto & c : sorted) {
             nameColumnWidth = std::max(nameColumnWidth, c->name.size() + 2);
         }
-        s << "Downstream calls by rank:" << std::endl;
+        s << "downstream calls by rank:" << std::endl;
         for (auto& c : sorted) {
             s << '\t' << std::setw(nameColumnWidth) << std::left << c->name << std::setw(0) << " : "
                 << "sum = " << d2s(c->ave.sum)
@@ -874,12 +900,12 @@ std::string snn::Timer::print(size_t numLevels, bool drillDownByRank) {
     return s.str();
 }
 
-void snn::Timer::CallNode::print(std::stringstream& s, const size_t numLevels) const {
+void snn::Timer::CallNode::print(std::ostream& s, const size_t numLevels) const {
     size_t nameColumnWidth = name.size();
     print(s, nameColumnWidth, 0, numLevels, {});
 }
 
-void snn::Timer::CallNode::print(std::stringstream& s, size_t nameColumnWidth, size_t level, const size_t numLevels,
+void snn::Timer::CallNode::print(std::ostream& s, size_t nameColumnWidth, size_t level, const size_t numLevels,
     std::chrono::high_resolution_clock::duration parentSum) const {
     if (level >= numLevels) {
         return;
@@ -1033,4 +1059,49 @@ void snn::prettyPrintHWCBuf(const uint8_t* buffer, int h, int w, int c, snn::Col
         }
         fprintf(fp, "----------%d--------------\n", q);
     }
+}
+
+template<>
+void snn::printNumber<int8_t>(const int8_t& n, FILE* fp) {
+    fprintf(fp, "%d ", n);
+}
+
+template<>
+void snn::printNumber<uint8_t>(const uint8_t& n, FILE* fp) {
+    fprintf(fp, "%d ", n);
+}
+
+template<>
+void snn::printNumber<int16_t>(const int16_t& n, FILE* fp) {
+    fprintf(fp, "%d ", n);
+}
+
+template<>
+void snn::printNumber<uint16_t>(const uint16_t& n, FILE* fp) {
+    fprintf(fp, "%d ", n);
+}
+
+template<>
+void snn::printNumber<int32_t>(const int32_t& n, FILE* fp) {
+    fprintf(fp, "%d ", n);
+}
+
+template<>
+void snn::printNumber<uint32_t>(const uint32_t& n, FILE* fp) {
+    fprintf(fp, "%d ", n);
+}
+
+template<>
+void snn::printNumber<float>(const float& n, FILE* fp) {
+    fprintf(fp, "%f ", n);
+}
+
+template<>
+void snn::printNumber<double>(const double& n, FILE* fp) {
+    fprintf(fp, "%f ", n);
+}
+
+template<>
+void snn::printNumber<snn::FP16>(const snn::FP16& n, FILE* fp) {
+    fprintf(fp, "%f ", snn::FP16::toFloat(n.u));
 }

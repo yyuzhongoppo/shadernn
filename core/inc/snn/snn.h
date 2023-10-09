@@ -71,7 +71,14 @@ enum class Precision {
 //  TEXTURES: textures
 //  UNIFORM_BUFFER: uniform buffers
 //  SSBO_BUFFER: shader storage buffer object
-enum class WeightAccessMethod { CONSTANTS, TEXTURES, UNIFORM_BUFFER, SSBO_BUFFER };
+enum class WeightAccessMethod {
+    CONSTANTS,
+    TEXTURES,
+    UNIFORM_BUFFER,
+    SSBO_BUFFER,
+};
+
+extern const WeightAccessMethod DEFAULT_WEIGHT_ASSESS_METHOD;
 
 enum class MRTMode { NO = 0, SINGLE_PLANE = 4, DOUBLE_PLANE = 8, QUAD_PLANE = 16 };
 

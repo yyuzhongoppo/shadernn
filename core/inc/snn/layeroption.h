@@ -27,12 +27,8 @@ namespace dp { // short for Dynamic Pipeline
 struct ShaderGenOptions {
     // Specifies desired input buffer dimension and format.
     // Format can be set to NONE, if we don't care.
-    std::vector<InferenceGraph::IODesc> desiredInput;
-
-    // Defines desired output buffer format.
-    // Output buffer dimension is determined by input dimension and
-    // the shader graph properties. So they are not specified here.
-    ColorFormat desiredOutputFormat;
+    // TODO: Change design and remove mutable.
+    mutable std::vector<InferenceGraph::IODesc> desiredInput;
 
     // Set to true to generate compute shaders
     bool compute = false;

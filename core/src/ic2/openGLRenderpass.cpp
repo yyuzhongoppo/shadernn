@@ -25,16 +25,19 @@
 
 // -----------------------------------------------------------------------------
 //
-snn::OpenGLRenderPass::OpenGLRenderPass(const snn::OpenGLRenderPass::CreationParameters& cp)
-    : _cp(cp)
+snn::OpenGLRenderPass::OpenGLRenderPass(snn::OpenGLRenderPass::CreationParameters&& cp)
+    : _cp(std::move(cp))
 {
     SNN_LOGD("Render pass created: %s", snn::ImageTextureGLArrayAccessor(_cp.texOutputs)[0].getTextureInfo2().c_str());
+#ifdef PROFILING
+    PROFILE_TIME(OpenGLRenderPass, "OpenGLRenderPass()")
+#endif
     _quad.allocate();
 
     // create program
-    _program.name = cp.name;
+    _program.name = _cp.name;
     if (isCompute()) {
-        if (!_program.loadCs(cp.pass.source.c_str())) {
+        if (!_program.loadCs(_cp.pass.source.c_str())) {
             return;
         }
     } else {
@@ -50,29 +53,30 @@ snn::OpenGLRenderPass::OpenGLRenderPass(const snn::OpenGLRenderPass::CreationPar
                 v_uv = v[gl_VertexID].zw;
             }
         )glsl";
-        if (!_program.loadVsPs(vscode, cp.pass.source.c_str())) {
+       
+        if (!_program.loadVsPs(vscode, _cp.pass.source.c_str())) {
             return;
         }
     }
 
     // query all uniform locations.
-    for (auto& [name, value] : cp.pass.uniforms) {
+    for (auto& [name, value] : _cp.pass.uniforms) {
         gl::SimpleUniform un(name, value);
         if (un.init(_program)) {
             _uniforms.push_back(un);
         } else {
-            SNN_LOGE("Uniform %s in %s not found. %s", name.c_str(), cp.name.c_str(), cp.pass.source.c_str());
+            SNN_LOGE("Uniform %s in %s not found. %s", name.c_str(), _cp.name.c_str(), _cp.pass.source.c_str());
         }
     }
 
     // query all run time uniforms.
-    for (auto& [name, value] : cp.pass.runtimeUniforms) {
+    for (auto& [name, value] : _cp.pass.runtimeUniforms) {
         (void) value;
         gl::SimpleUniform un(name, 0);
         if (un.init(_program)) {
             _runtimeUniforms.push_back(un);
         } else {
-            SNN_LOGE("Uniform %s in %s not found. %s", name.c_str(), cp.name.c_str(), cp.pass.source.c_str());
+            SNN_LOGE("Uniform %s in %s not found. %s", name.c_str(), _cp.name.c_str(), _cp.pass.source.c_str());
         }
     }
 
@@ -125,11 +129,14 @@ snn::OpenGLRenderPass::OpenGLRenderPass(const snn::OpenGLRenderPass::CreationPar
             }
         }
     }
+    _cp.pass.releaseResources();
 }
 
 void snn::OpenGLRenderPass::initGLFSData(uint32_t weightMethod, uint32_t fp16, uint32_t kernelW, uint32_t kernelH,
     uint32_t numInputPlanes, uint32_t numOutputPlanes, uint32_t channelsPerPass, uint32_t fsPlaneIndex) {
-
+#ifdef PROFILING
+    PROFILE_TIME(initGLFSData, "initGLFSData")
+#endif
     uint32_t kernelSize = (uint32_t) kernelW;
     (void) kernelH;
     snn::WeightAccessMethod weightMode = (snn::WeightAccessMethod) weightMethod;
@@ -241,7 +248,9 @@ void snn::OpenGLRenderPass::initGLFSData(uint32_t weightMethod, uint32_t fp16, u
 
 void snn::OpenGLRenderPass::setTextureWeights(uint32_t weightMethod, uint32_t fp16, uint32_t kernelW, uint32_t kernelH,
     uint32_t numInputPlanes, uint32_t numOutputPlanes, uint32_t channelsPerPass, uint32_t fsPlaneIndex) const {
-
+#ifdef PROFILING
+    PROFILE_TIME(setTextureWeights, "setTextureWeights")
+#endif
     uint32_t kernelSize = (uint32_t) kernelW;
     (void) kernelH;
     (void) weightMethod;
@@ -254,16 +263,14 @@ void snn::OpenGLRenderPass::setTextureWeights(uint32_t weightMethod, uint32_t fp
     for (std::size_t filter = 0; filter < outputChannels; filter++) {
         std::vector<float> weightVal(4 * kernelSize * kernelSize, 0.0);
         for (std::size_t filterPlane = 0; filterPlane < numInputPlanes; filterPlane++) {
-            uint32_t outputChannel = filter;
-            std::size_t idx = outputChannel * numInputPlanes + filterPlane;
             for (std::size_t i = 0; i < kernelSize; i++) {
                 for (std::size_t j = 0; j < kernelSize; j++) {
                     std::size_t weightValIdx = (4 * kernelSize * i) + (4 * j) + (filterPlane % 4);
                     if (preferHp) {
                         uint16_t* fp16Addr = (uint16_t*)weightVal.data();
-                        *(fp16Addr + weightValIdx) = FP32::toHalf(_cp.pass.modelWeights[idx].at<float>(i, j));
+                        *(fp16Addr + weightValIdx) = FP32::toHalf(_cp.pass.convWeightsView()[filter][filterPlane][i][j]);
                     } else {
-                        weightVal[weightValIdx] = _cp.pass.modelWeights[idx].at<float>(i, j);
+                        weightVal[weightValIdx] = _cp.pass.convWeightsView()[filter][filterPlane][i][j];
                     }
                 }
             }
@@ -299,6 +306,9 @@ void snn::OpenGLRenderPass::setTextureWeights(uint32_t weightMethod, uint32_t fp
 
 void snn::OpenGLRenderPass::setBufferWeights(uint32_t weightMethod, uint32_t fp16, uint32_t kernelW, uint32_t kernelH,
     uint32_t numInputPlanes, uint32_t numOutputPlanes, uint32_t channelsPerPass, uint32_t fsPlaneIndex) const {
+#ifdef PROFILING
+    PROFILE_TIME(setBufferWeights, "setBufferWeights")
+#endif
 
     uint32_t kernelSize = (uint32_t) kernelW;
     (void) kernelH;
@@ -313,14 +323,11 @@ void snn::OpenGLRenderPass::setBufferWeights(uint32_t weightMethod, uint32_t fp1
     for (std::size_t filter = 0; filter < outputChannels; filter++) {
         std::vector<uint8_t> weightVal(byteSize * 4 * numInputPlanes * kernelSize * kernelSize, 0);
         for (std::size_t filterPlane = 0; filterPlane < numInputPlanes; filterPlane++) {
-            uint32_t outputChannel = passIndex * channelsPerPass + filter;
-            std::size_t idx = outputChannel * numInputPlanes + filterPlane;
-
             for (std::size_t i = 0; i < kernelSize; i++) {
                 for (std::size_t j = 0; j < kernelSize; j++) {
                     std::size_t weightValIdx = (byteSize * 4 * kernelSize * i) + (4 * j) + (filterPlane % 4);
                     std::vector<uint8_t> byteRep;
-                    snn::getByteRepresentation(_cp.pass.modelWeights[idx].at<float>(i, j), byteRep, preferHp);
+                    snn::getByteRepresentation(_cp.pass.convWeightsView()[filter][filterPlane][i][j], byteRep, preferHp);
                     for (std::size_t byteIdx = 0; byteIdx < byteSize; byteIdx++) {
                         weightVal[weightValIdx + byteIdx] = byteRep.at(byteIdx);
                     }
@@ -344,7 +351,9 @@ void snn::OpenGLRenderPass::setBufferWeights(uint32_t weightMethod, uint32_t fp1
 
 void snn::OpenGLRenderPass::initGLFSDataDW(uint32_t weightMethod, uint32_t fp16, uint32_t kernelW, uint32_t kernelH,
     uint32_t numInputPlanes, uint32_t numOutputPlanes, uint32_t channelsPerPass, uint32_t fsPlaneIndex) {
-
+#ifdef PROFILING
+    PROFILE_TIME(initGLFSDataDW, "initGLFSDataDW")
+#endif
     uint32_t kernelSize = (uint32_t) kernelW;
     (void) kernelH;
     snn::WeightAccessMethod weightMode = (snn::WeightAccessMethod) weightMethod;
@@ -383,7 +392,7 @@ void snn::OpenGLRenderPass::initGLFSDataDW(uint32_t weightMethod, uint32_t fp16,
     for (std::size_t i = 0; i < DIV_4_ROUND_UP(outputChannels); i++) {
         switch (weightMode) {
         case snn::WeightAccessMethod::TEXTURES:
-            _weightTextures[i].allocate2D(weightFormat, kernelSize, kernelSize, 1);
+            _weightTextures[i].allocate2D(weightFormat, kernelSize, kernelSize);
             break;
 
         case snn::WeightAccessMethod::UNIFORM_BUFFER: {
@@ -468,9 +477,9 @@ void snn::OpenGLRenderPass::setTextureWeightsDW(uint32_t weightMethod, uint32_t 
                 std::size_t weightValIdx = (4 * kernelSize * i) + (4 * j) + (filter % 4);
                 if (preferHp) {
                     uint16_t* fp16Addr = (uint16_t*)weightVal.data();
-                    *(fp16Addr + weightValIdx) = FP32::toHalf(_cp.pass.modelWeights[filter].at<float>(i, j));
+                    *(fp16Addr + weightValIdx) = FP32::toHalf(_cp.pass.convWeightsView()[0][filter][i][j]);
                 } else {
-                    weightVal[weightValIdx] = _cp.pass.modelWeights[filter].at<float>(i, j);
+                    weightVal[weightValIdx] = _cp.pass.convWeightsView()[0][filter][i][j];
                 }
             }
         }
@@ -512,7 +521,7 @@ void snn::OpenGLRenderPass::setBufferWeightsDW(uint32_t weightMethod, uint32_t f
             for (std::size_t j = 0; j < kernelSize; j++) {
                 std::size_t weightValIdx = (byteSize * 4 * kernelSize * i) + (4 * j) + (filter % 4);
                 std::vector<uint8_t> byteRep;
-                snn::getByteRepresentation(_cp.pass.modelWeights[filter].at<float>(j, i), byteRep, preferHp);
+                snn::getByteRepresentation(_cp.pass.convWeightsView()[0][filter][j][i], byteRep, preferHp);
                 for (std::size_t byteIdx = 0; byteIdx < byteSize; byteIdx++) {
                     weightVal[weightValIdx + byteIdx] = byteRep.at(byteIdx);
                 }
@@ -567,7 +576,7 @@ void snn::OpenGLRenderPass::initGLCSData(uint32_t weightMethod, uint32_t fp16, u
             weightFormat = snn::ColorFormat::RGBA32F;
         }
 
-        auto dims = _cp.pass.weightDims["2"];
+        auto dims = _cp.pass.weightDims.at("2");
         kernelTexture.allocate2DArray(weightFormat, dims[0], dims[1], dims[2], dims[2] * 4, 1);
 
         if (preferHp) {
@@ -580,7 +589,7 @@ void snn::OpenGLRenderPass::initGLCSData(uint32_t weightMethod, uint32_t fp16, u
             }
             kernelTexture.unbind();
         } else {
-            float* kernelBuf = _cp.pass._vecWeights.data();
+            const float* kernelBuf = _cp.pass._vecWeights.data();
 
             kernelTexture.bind(0);
 
@@ -601,13 +610,11 @@ void snn::OpenGLRenderPass::initGLCSData(uint32_t weightMethod, uint32_t fp16, u
             _ssboMap[3] = _boWeights->getId();
         }
     }
-
     if (_cp.pass._vecBias.size() > 0) {
         _boBias.reset(new gl::BufferObject<GL_SHADER_STORAGE_BUFFER, MIN_SSBO_BUFFER_LEN_ARM_MALI>());
         _boBias->allocate(_cp.pass._vecBias.size(), _cp.pass._vecBias.data());
         _ssboMap[4] = _boBias->getId();
     }
-
     if (_cp.pass._vecBeta.size() > 0) {
         _bnBeta.reset(new gl::BufferObject<GL_SHADER_STORAGE_BUFFER>());
         _bnBeta->allocate(_cp.pass._vecBeta.size(), _cp.pass._vecBeta.data());
@@ -637,10 +644,10 @@ void snn::OpenGLRenderPass::updateParameters() {
     if (_cp.pass.runtimeData.empty()) {
         return;
     }
-    uint32_t* jitterOffset = _cp.pass.runtimeData.data();
+    const uint32_t* jitterOffset = _cp.pass.runtimeData.data();
     size_t len = _cp.pass.runtimeData.size()/_cp.pass.period;
     for (size_t i = 0; i < _runtimeUniforms.size(); i++) {
-        uint32_t paramIdx = _cp.pass.runtimeUniforms[_runtimeUniforms[i].getName()].first;
+        uint32_t paramIdx = _cp.pass.runtimeUniforms.at(_runtimeUniforms[i].getName()).first;
         uint32_t value = jitterOffset[UP_DIV(_runIdx, _cp.pass.totalPasses) % len * _cp.pass.period + paramIdx];
         _runtimeUniforms[i].update((int)value);
         _runtimeUniforms[i].apply();

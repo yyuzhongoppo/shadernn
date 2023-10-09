@@ -16,6 +16,7 @@
 #include "deconv2dGL.h"
 #include "layerFactory.h"
 #include "inferencepassGL.h"
+#include "conv2dSupport.h"
 #include <string>
 #include <vector>
 #include <sstream>
@@ -81,7 +82,8 @@ void Conv2DTransposeLayerGl::getWeightConstants(std::vector<WeightContants>& wei
 
 void Conv2DTransposeLayerGl::getAllWeightConstants(std::vector<WeightContants>& weightConstants, uint32_t numShaderPasses) const {
     // TODO: This code is unoptimized; we can do this transposal in place instead
-    auto& weightMatrices = _desc.weightsCvM;
+    const auto& weightMatrices = _desc.weightsConv();
+
     auto nWeightStride   = _desc.kernelSize * _desc.kernelSize;
 
     // Rounding up to the next divide by 4
@@ -93,7 +95,8 @@ void Conv2DTransposeLayerGl::getAllWeightConstants(std::vector<WeightContants>& 
         for (uint32_t idxOutput = 0; idxOutput < _desc.numOutputPlanes; ++idxOutput) {
             SNN_ASSERT(startOffset < nWeightStride * _desc.numInputPlanes);
             SNN_ASSERT(idxOutput * _desc.numInputPlanes + idxInput < weightMatrices.size());
-            memcpy(&vWeightMatrices[idxOutput][startOffset], weightMatrices[idxOutput * _desc.numInputPlanes + idxInput].data,
+
+            memcpy(&vWeightMatrices[idxOutput][startOffset], weightMatrices[idxOutput][idxInput].data(),
                    _desc.kernelSize * _desc.kernelSize * sizeof(float));
         }
     }
@@ -195,14 +198,13 @@ void Conv2DTransposeLayerGl::buildComputePostDefine(std::ostream& stream, const 
 }
 
 // Adds last text for fragment shader.
-void Conv2DTransposeLayerGl::createShaderLayerCode(InferencePassGl& pass, std::string& shaderCode, const std::vector<WeightContants>& weightConstants,
+void Conv2DTransposeLayerGl::createShaderLayerCode(InferencePassGl& /*pass*/, std::string& shaderCode, const std::vector<WeightContants>& weightConstants,
                                                  std::vector<std::ostringstream>& batchNormalizationConstants, uint32_t shaderPassIndex,
                                                  uint32_t outputChannels) const {
     uint32_t weightOffset = shaderPassIndex * 4;
 
     for (uint32_t k = 0; k < outputChannels; ++k) {
         findAndReplace(shaderCode, formatString("_PLACEHOLDER_WEIGHT%d_VEC_CONSTANTS_", k + 1), weightConstants[weightOffset + k].text);
-        pass.weightMatrices[k] = weightConstants[weightOffset + k].values;
     }
 
     if (_desc.useBatchNormalization) {
@@ -216,7 +218,7 @@ void Conv2DTransposeLayerGl::createShaderLayerCode(InferencePassGl& pass, std::s
     }
 }
 
-InferencePassesSptr Conv2DTransposeLayerGl::createFS(const LayerGenOptions& options) const {
+InferencePassesUptr Conv2DTransposeLayerGl::createFS(const LayerGenOptions& options) const {
     auto fsFile = std::string("shaders/shadertemplate_fs_") + std::to_string(_desc.kernelSize) + "x_deconv_";
     if (_desc.stride == 2 && _desc.kernelSize == 4 && options.ssbo) {
         fsFile += "2s_RGBA.glsl";
@@ -241,7 +243,7 @@ InferencePassesSptr Conv2DTransposeLayerGl::createFS(const LayerGenOptions& opti
 
     std::vector<std::ostringstream> batchNormalizationConstants(NUM_BATCH_NORM_PARAMETERS * _desc.numOutputPlanes);
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     // Get the list of passes.
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
@@ -277,7 +279,7 @@ InferencePassesSptr Conv2DTransposeLayerGl::createFS(const LayerGenOptions& opti
     return ret;
 }
 
-InferencePassesSptr Conv2DTransposeLayerGl::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr Conv2DTransposeLayerGl::createCS(const LayerGenOptions& options) const {
     // Builds the path of the shader template file to load.
     std::ostringstream shaderFilePathStream;
 
@@ -305,7 +307,7 @@ InferencePassesSptr Conv2DTransposeLayerGl::createCS(const LayerGenOptions& opti
 
     std::vector<std::ostringstream> batchNormalizationConstants(NUM_BATCH_NORM_PARAMETERS * _desc.numOutputPlanes);
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     // Get the list of passes.
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;

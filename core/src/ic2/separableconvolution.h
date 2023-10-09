@@ -17,12 +17,11 @@
 #include "genericlayer.h"
 #include "snn/snn.h"
 #include "modelparser.h"
+#include "conv2dSupport.h"
 #include <string>
 #include <vector>
 #include <map>
 #include <utility>
-#include <opencv2/core/mat.hpp>
-#include <opencv2/opencv.hpp>
 
 namespace snn {
 namespace dp { // short for Dynamic Pipeline
@@ -36,24 +35,29 @@ struct SeparableConv2DDesc : GenericConvDesc {
     std::string paddingT, paddingB, paddingL, paddingR;
     void parse(ModelParser& parser, int layerId) {
         GenericConvDesc::parse(parser, layerId);
-        parser.getDepthwiseConvolutionLayer(layerId, (int&) numOutputPlanes, (int&) numInputPlanes, activation, (int&) kernelSize, (int&) stride, biases,
-                                            weightsCvM, useBatchNormalization, batchNormalization, leakyReluAlpha, paddingT, paddingB, paddingL, paddingR);
+        parser.getDepthwiseConvolutionLayer(layerId, (int&) numOutputPlanes, (int&) numInputPlanes, activation, (int&) kernelSize, (int&) stride, biases, weightsConv(),
+        useBatchNormalization, batchNormalization, leakyReluAlpha, paddingT, paddingB, paddingL, paddingR);
+        SNN_ASSERT(numOutputPlanes = numInputPlanes);
     }
 };
 
 // This is a base class to generates a shader for separable convolution
 class SeparableConv2DLayer : public GenericConvolutionLayer {
 public:
-    SeparableConv2DLayer(SeparableConv2DDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {}
+    SeparableConv2DLayer(SeparableConv2DDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {
+        _pDesc = &_desc;
+    }
     virtual ~SeparableConv2DLayer() = default;
     virtual InferenceGraph::Transform getOutputScaleDimAdjustment() const override;
     virtual void getOutputDims(uint32_t& width, uint32_t& height, uint32_t& depth) const override;
 
 protected:
-    mutable SeparableConv2DDesc _desc;
+    SeparableConv2DDesc _desc;
 
     void getPaddingOffset(uint32_t (&offsets)[4]) const;
-    static bool oihw2hwo4i4(std::vector<cv::Mat> inputWeights, std::vector<float>& outVec, int inChannels, int outChannels, int fw, int fh, int unit = 4);
+
+public:
+    static bool oihw2hwo4i4(const Conv2DSupport::WeightsTensor& inputWeights, std::vector<float>& outVec, int inChannels, int outChannels, int fw, int fh, int unit = 4);
 };
 
 } // namespace dp

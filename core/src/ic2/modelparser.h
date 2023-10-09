@@ -14,9 +14,9 @@
  */
 #pragma once
 
-#include <snn/snn.h>
+#include "snn/snn.h"
+#include "conv2dSupport.h"
 #include <picojson.h>
-#include <opencv2/core/mat.hpp>
 #include <string>
 #include <fstream>
 #include <map>
@@ -101,7 +101,8 @@ public:
     int getDepthwiseMultiplier(int layerId);
 
     int getConvolutionLayer(int& layerId, int& numOutputPlanes, int& numInputPlanes, std::string& activation, int& kernelSize, int& stride,
-                            std::vector<double>& biases, std::vector<cv::Mat>& weights, bool& _useBatchNormalization,
+                            std::vector<float>& biases, Conv2DSupport::WeightsTensor& weights,
+                            bool& _useBatchNormalization,
                             std::map<std::string, std::vector<float>>& batchNormalization, float& leakyReluAlpha, std::string& paddingT, std::string& paddingB,
                             std::string& paddingL, std::string& paddingR, std::string& paddingMode, bool& useMultiInputs);
 
@@ -126,7 +127,8 @@ public:
     int getYOLOLayer(int& layerId, int& numOutputPlanes, int& numInputPlanes);
 
     int getDepthwiseConvolutionLayer(int& layerId, int& numOutputPlanes, int& numInputPlanes, std::string& activation, int& kernelSize, int& stride,
-                                     std::vector<double>& biases, std::vector<cv::Mat>& weights, bool& useBatchNormalization,
+                                     std::vector<float>& biases, Conv2DSupport::WeightsTensor& weights,
+                                     bool& useBatchNormalization,
                                      std::map<std::string, std::vector<float>>& batchNormalization, float& leakyReluAlpha, std::string& paddingT,
                                      std::string& paddingB, std::string& paddingL, std::string& paddingR);
 

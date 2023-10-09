@@ -199,7 +199,7 @@ void AveragePooling2DLayerGl::buildFragPostDefine(std::ostream& stream) const {
     stream << "}\n";
 }
 
-InferencePassesSptr AveragePooling2DLayerGl::createFS(const GenericModelLayer::LayerGenOptions& options) const {
+InferencePassesUptr AveragePooling2DLayerGl::createFS(const GenericModelLayer::LayerGenOptions& options) const {
     std::string shaderTemplateFilePath = AVGPOOL2D_FS_ASSET_NAME;
     std::string fsTemplateCode         = loadShader(shaderTemplateFilePath.c_str());
 
@@ -230,7 +230,7 @@ InferencePassesSptr AveragePooling2DLayerGl::createFS(const GenericModelLayer::L
     this->buildCalcDefLogic(avgPoolLogicStream);
     auto avgPoolLogic = avgPoolLogicStream.str();
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(numShaderPasses);
 
@@ -293,8 +293,8 @@ InferencePassesSptr AveragePooling2DLayerGl::createFS(const GenericModelLayer::L
     return ret;
 }
 
-InferencePassesSptr AveragePooling2DLayerGl::createCS(const LayerGenOptions& /*options*/) const {
-    InferencePassesSptr ret(new InferencePassesGl());
+InferencePassesUptr AveragePooling2DLayerGl::createCS(const LayerGenOptions& /*options*/) const {
+    InferencePassesUptr ret(new InferencePassesGl());
 
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(1);

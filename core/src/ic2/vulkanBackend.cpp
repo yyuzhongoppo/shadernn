@@ -56,13 +56,13 @@ void VulkanBackend::initRenderPasses(snn::dp::GenericModelLayer* modelLayer, snn
     std::vector<uvkc::vulkan::Sampler*> weightSamplers;
     weightSamplers.push_back(_weightSampler0.get());
 
-    const InferencePassesVulkan* passesVulkan = InferencePassesVulkan::cast(modelLayer->getPasses());
+    InferencePassesVulkan* passesVulkan = InferencePassesVulkan::cast(modelLayer->getPasses());
     for (size_t i = 0; i < passesVulkan->passes.size(); i++) {
         auto& pass = passesVulkan->passes[i];
 
         VulkanRenderPass::CreationParameters rpcp = {
             formatString("%s pass[%d]", modelLayer->getName().c_str(), i),
-            pass,
+            std::move(pass),
             samplers,
             weightSamplers,
             texInputs,
@@ -71,10 +71,13 @@ void VulkanBackend::initRenderPasses(snn::dp::GenericModelLayer* modelLayer, snn
             _cmdBuffer.get(),
         };
 
-        auto renderPass = std::make_shared<snn::VulkanRenderPass>(context, rpcp);
+        auto renderPass = std::make_shared<snn::VulkanRenderPass>(context, std::move(rpcp));
 
         modelLayer->getRenderPasses().push_back(renderPass);
+
+        pass.releaseResources();
     }
+    modelLayer->releaseResources();
 }
 
 void VulkanBackend::prepareRun(snn::MixedInferenceCore::RunParameters& rp,

@@ -21,8 +21,6 @@
 #include "inferencepass.h"
 #include "modelparser.h"
 #include <utility>
-#include <opencv2/core/mat.hpp>
-#include <opencv2/opencv.hpp>
 #include <set>
 #include <string>
 
@@ -40,7 +38,7 @@ public:
     YOLOLayer(YOLODesc&& d): GenericModelLayer(d), _yoloDesc(std::move(d)) {}
     YOLOLayer(const YOLOLayer& d) = delete;
     YOLOLayer& operator=(const YOLOLayer& d) = delete;
-    ~YOLOLayer() {}
+    virtual ~YOLOLayer() = default;
 
     InferenceGraph::Transform getOutputScaleDimAdjustment() const override { return {0, {{1.0f, 1.0f, 0.0f, 0.0f}}}; };
 

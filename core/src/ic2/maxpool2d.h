@@ -35,7 +35,9 @@ struct MaxPooling2DDesc : GenericConvDesc {
 // This is a base class to generates a shader for maxpooling
 class MaxPooling2DLayer : public GenericConvolutionLayer {
 public:
-    MaxPooling2DLayer(MaxPooling2DDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {}
+    MaxPooling2DLayer(MaxPooling2DDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {
+        _pDesc = &_desc;
+    }
     virtual ~MaxPooling2DLayer() = default;
     InferenceGraph::Transform getOutputScaleDimAdjustment() const override;
 

@@ -86,12 +86,18 @@ std::unique_ptr<MixedInferenceCore> snn::MixedInferenceCore::create(GpuContext* 
 std::unique_ptr<MixedInferenceCore> snn::MixedInferenceCore::create(GpuContext* context, const std::string& modelFileName,
     const dp::ShaderGenOptions& options, bool dumpOutputs) {
     bool useVulan = context->backendType == GpuBackendType::VULKAN;
+    auto createTimeStart = std::chrono::high_resolution_clock::now();
     auto dp = snn::dp::loadFromJsonModel(modelFileName, useVulan, options.mrtMode, options.weightMode, options.preferrHalfPrecision);
     MixedInferenceCore::CreationParameters cp;
     (InferenceGraph &&) cp = snn::dp::generateInferenceGraph(dp[0], options);
 
     cp.dumpOutputs = dumpOutputs;
-    return MixedInferenceCore::create(context, cp);
+    auto ic2 = MixedInferenceCore::create(context, cp);
+
+    auto createEndTime = std::chrono::high_resolution_clock::now();
+    auto duration    = std::chrono::duration_cast<std::chrono::microseconds>(createEndTime - createTimeStart);
+    SNN_LOGD("Time spent in creation of MixedInferenceCore: %f secs", duration.count() / 1000000.0f);
+    return ic2;
 }
 
 void snn::MixedInferenceCore::run(MixedInferenceCore::RunParameters& rp) {
@@ -104,9 +110,9 @@ void snn::MixedInferenceCore::run(MixedInferenceCore::RunParameters& rp) {
 
     backend->prepareRun(rp, stages, bindOutput, stages.size() - 1);
     {
-        ScopedTimer st1(cpuRunTime);
         std::vector<std::vector<float>> inputs;
 #ifdef PROFILING
+        PROFILE_TIME(prepareRun, "Core prepare run");
         if (backend->isProfilingEnabled()) {
             gpuRunTime->start();
         }
@@ -305,6 +311,7 @@ bool snn::MixedInferenceCore::init(const MixedInferenceCore::CreationParameters&
     backend = dp::BackendBuilder::build(context, cp);
 #ifdef PROFILING
     gpuRunTime = (backend->createDeviceTimer("IC2 Total GPU runtime"));
+    PROFILE_TIME(init, "Core init");
 #endif
     std::string rootFilename(OUTPUT_DIR);
 
@@ -325,88 +332,106 @@ bool snn::MixedInferenceCore::init(const MixedInferenceCore::CreationParameters&
         preDev = cp.layers[i]->layerLoc;
     }
 
-    for (size_t i = 0; i < stages.size(); ++i) { // TODO: use zip function to simpliy loop syntax
-        InferenceGraph::Layer& layer = *cp.layers[i];
-        RenderStage& stage = stages[i];
-
-        stage.layer = std::make_shared<InferenceGraph::Layer>(layer);
-        SNN_LOGD("stage: %zu, backend:%d, isInput:%d", i, (int)stage.backend, stage.layer->isInputLayer);
-        // initialize stage's input array
-        if (stage.backend == Backend::Backend_GPU) {
-            if (stage.transition == Transition::Backend_CPU_GPU) {
-                // TODO: Copy CPU memory to Texture
-            }
-
-            stage.stageInputs.allocate(layer.inputRefs.size());
-            stage.stageOutputs.allocate(1);
-
-            // Skip create new texture or binding for input layer
-            if (stage.layer->isInputLayer) {
+    for (size_t i = 0; i < stages.size(); ++i) { // TODO: use zip function to simplify loop syntax
+        {
 #ifdef PROFILING
-                auto inputIdx = stage.layer->inputIndex;
-                InferenceGraph::IODesc inputDesc  = cp.inputsDesc[inputIdx];
-                std::string dimStr =
-                    formatString("%dx%dx%d_%dx%dx%d", inputDesc.width, inputDesc.height, inputDesc.channels, inputDesc.width,
-                        inputDesc.height, inputDesc.channels);
-                stage.timer.reset(backend->createDeviceTimer(layer.name + "_" + dimStr));
+            PROFILE_TIME(InitLayer, "Core init - layer init")
 #endif
-                continue;
-            }
+            InferenceGraph::Layer& layer = *cp.layers[i];
+            RenderStage& stage = stages[i];
 
-            for (size_t j = 0; j < layer.inputRefs.size(); ++j) {
-                const auto& inputRef = layer.inputRefs[j];
-                if (inputRef.isStageOutput) {
-                    SNN_LOGD("Backend_GPU: Stage: %zu, input: %zu, inputRef:%d", i, j, inputRef.index);
-                    SNN_ASSERT(inputRef.index < i); // can't reference buffer from descendant layer
-                    stage.stageInputs[j].attach(&stages[inputRef.index].stageOutputs[0]);
+            stage.layer = std::make_shared<InferenceGraph::Layer>(layer);
+            SNN_LOGD("stage: %zu, backend:%d, isInput:%d", i, (int)stage.backend, stage.layer->isInputLayer);
+            // initialize stage's input array
+            if (stage.backend == Backend::Backend_GPU) {
+                if (stage.transition == Transition::Backend_CPU_GPU) {
+                    // TODO: Copy CPU memory to Texture
+                }
+
+                stage.stageInputs.allocate(layer.inputRefs.size());
+                stage.stageOutputs.allocate(1);
+
+                // Skip create new texture or binding for input layer
+                if (stage.layer->isInputLayer) {
+#ifdef PROFILING
+                    auto inputIdx = stage.layer->inputIndex;
+                    InferenceGraph::IODesc inputDesc  = cp.inputsDesc[inputIdx];
+                    std::string dimStr =
+                        formatString("%dx%dx%d_%dx%dx%d", inputDesc.width, inputDesc.height, inputDesc.channels, inputDesc.width,
+                            inputDesc.height, inputDesc.channels);
+                    stage.timer.reset(backend->createDeviceTimer(layer.name + "_" + dimStr));
+#endif
+                    continue;
+                }
+
+                for (size_t j = 0; j < layer.inputRefs.size(); ++j) {
+                    const auto& inputRef = layer.inputRefs[j];
+                    if (inputRef.isStageOutput) {
+                        SNN_LOGD("Backend_GPU: Stage: %zu, input: %zu, inputRef:%d", i, j, inputRef.index);
+                        SNN_ASSERT(inputRef.index < i); // can't reference buffer from descendant layer
+                        stage.stageInputs[j].attach(&stages[inputRef.index].stageOutputs[0]);
+                        stage.inputIds.push_back(inputRef.index);
+                        SNN_LOGD("Backend_GPU: Stage: %zu, input: %zu, inputRef:%d %s", i, j, inputRef.index, stage.stageInputs[j].getTextureInfo2().c_str());
+                    } else {  // Delay binding for input layer
+                        auto inputIdx = stages[inputRef.index].layer->inputIndex;
+                        stage.delayBindMask[j] = 1;
+                        stage.inputIds.push_back(inputIdx);
+                        SNN_LOGD("Backend_GPU: Stage: %zu, input: %zu, inputRef:%d delay binding: %d", i, j, inputRef.index, inputIdx);
+                    }
+                }
+                std::array<uint32_t, 4> dims {layer.outputDesc.width, layer.outputDesc.height, layer.outputDesc.depth, 1};
+                stage.stageOutputs[0].resetTexture(dims, layer.outputDesc.format, "");
+                SNN_LOGD("Layer %zu: texture: %s", i, stage.stageOutputs[0].getTextureInfo2().c_str());
+
+                layer.initFunPtr(backend, stage.stageInputs, stage.stageOutputs);
+            } else if (stage.backend == Backend::Backend_CPU) {
+                SNN_LOGD("%%%%%%%% dim:%d, %d, %d", layer.outputDesc.width, layer.outputDesc.height, layer.outputDesc.depth);
+                stage.stageInputs.allocate(layer.inputRefs.size());
+                stage.stageOutputs.allocate(1);
+                std::array<uint32_t, 4> dims {layer.outputDesc.width, layer.outputDesc.height, layer.outputDesc.depth, 1};
+                stage.stageOutputs[0].resetTexture(dims, layer.outputDesc.format, "");
+
+                for (size_t j = 0; j < layer.inputRefs.size(); ++j) {
+                    const auto& inputRef = layer.inputRefs[j];
+                    if (inputRef.index < 0) {
+                        SNN_RIP("CPU layer currently cannot accept inputs from the input images !");
+                    }
                     stage.inputIds.push_back(inputRef.index);
-                    SNN_LOGD("Backend_GPU: Stage: %zu, input: %zu, inputRef:%d %s", i, j, inputRef.index, stage.stageInputs[j].getTextureInfo2().c_str());
-                } else {  // Delay binding for input layer
-                    auto inputIdx = stages[inputRef.index].layer->inputIndex;
-                    stage.delayBindMask[j] = 1;
-                    stage.inputIds.push_back(inputIdx);
-                    SNN_LOGD("Backend_GPU: Stage: %zu, input: %zu, inputRef:%d delay binding: %d", i, j, inputRef.index, inputIdx);
+                    stage.stageInputs[j].attach(&stages[inputRef.index].stageOutputs[0]);
+                    SNN_LOGD("Backend_CPU: Stage: %zu, input: %zu, inputRef:%d %s", i, j, inputRef.index, stage.stageInputs[j].getTextureInfo2().c_str());
                 }
             }
-            std::array<uint32_t, 4> dims {layer.outputDesc.width, layer.outputDesc.height, layer.outputDesc.depth, 1};
-            stage.stageOutputs[0].resetTexture(dims, layer.outputDesc.format, "");
-            SNN_LOGD("Layer %zu: texture: %s", i, stage.stageOutputs[0].getTextureInfo2().c_str());
-            layer.initFunPtr(backend, stage.stageInputs, stage.stageOutputs);
-        } else if (stage.backend == Backend::Backend_CPU) {
-            SNN_LOGD("%%%%%%%% dim:%d, %d, %d", layer.outputDesc.width, layer.outputDesc.height, layer.outputDesc.depth);
-            stage.stageInputs.allocate(layer.inputRefs.size());
-            stage.stageOutputs.allocate(1);
-            std::array<uint32_t, 4> dims {layer.outputDesc.width, layer.outputDesc.height, layer.outputDesc.depth, 1};
-            stage.stageOutputs[0].resetTexture(dims, layer.outputDesc.format, "");
-
-            for (size_t j = 0; j < layer.inputRefs.size(); ++j) {
-                const auto& inputRef = layer.inputRefs[j];
-                if (inputRef.index < 0) {
-                    SNN_RIP("CPU layer currently cannot accept inputs from the input images !");
-                }
-                stage.inputIds.push_back(inputRef.index);
-                stage.stageInputs[j].attach(&stages[inputRef.index].stageOutputs[0]);
-                SNN_LOGD("Backend_CPU: Stage: %zu, input: %zu, inputRef:%d %s", i, j, inputRef.index, stage.stageInputs[j].getTextureInfo2().c_str());
-            }
+#ifdef PROFILING
+            // initialize timer
+            // Get Input/Output Dims
+            int prevLayerIdx = layer.inputRefs[0].index;
+            InferenceGraph::IODesc inputDesc  = prevLayerIdx >= 0 ? stages[prevLayerIdx].layer->outputDesc : cp.inputsDesc[0];
+            const InferenceGraph::IODesc& outputDesc = layer.outputDesc;
+            SNN_LOGD("%%%%%%%%, input: %d, %d, %d, %d output: %d, %d, %d, %d", inputDesc.width, inputDesc.height, inputDesc.depth,
+                     inputDesc.channels, outputDesc.width, outputDesc.height, outputDesc.depth, outputDesc.channels);
+            std::string dimStr =
+                formatString("%dx%dx%d_%dx%dx%d", inputDesc.width, inputDesc.height, inputDesc.channels, outputDesc.width, outputDesc.height, outputDesc.channels);
+            stage.timer.reset(backend->createDeviceTimer(layer.name + "_" + dimStr));
+#endif
         }
 #ifdef PROFILING
-        // initialize timer
-        // Get Input/Output Dims
-        int prevLayerIdx = layer.inputRefs[0].index;
-        InferenceGraph::IODesc inputDesc  = prevLayerIdx >= 0 ? stages[prevLayerIdx].layer->outputDesc : cp.inputsDesc[0];
-        const InferenceGraph::IODesc& outputDesc = layer.outputDesc;
-        SNN_LOGD("%%%%%%%%, input: %d, %d, %d, %d output: %d, %d, %d, %d", inputDesc.width, inputDesc.height, inputDesc.depth,
-                 inputDesc.channels, outputDesc.width, outputDesc.height, outputDesc.depth, outputDesc.channels);
-        std::string dimStr =
-            formatString("%dx%dx%d_%dx%dx%d", inputDesc.width, inputDesc.height, inputDesc.channels, outputDesc.width, outputDesc.height, outputDesc.channels);
-
-        stage.timer.reset(backend->createDeviceTimer(layer.name + "_" + dimStr));
+        SNN_LOG_EVERY_N_SEC(5, INFO, printInitTimings().c_str());
 #endif
     }
     auto initEndTime = std::chrono::high_resolution_clock::now();
     auto duration    = std::chrono::duration_cast<std::chrono::microseconds>(initEndTime - initTimeStart);
-    SNN_LOGD("Time spent in initialization for MixedInferenceCore: %f secs", duration.count() / 1000000.0f);
+    SNN_LOGD("Time spent in initialization of MixedInferenceCore: %f secs", duration.count() / 1000000.0f);
     return true;
+}
+
+std::string snn::MixedInferenceCore::printInitTimings() const {
+    std::stringstream ss;
+    ss << std::endl;
+    ss << "========================= Inference Core Init Time Stats =========================\n";
+    ss << Timer::print(10, false, false);
+    ss << "==================================================================================\n";
+    Timer::reset(false);
+    return ss.str();
 }
 
 std::string snn::MixedInferenceCore::printTimingStats() const {
@@ -429,7 +454,7 @@ std::string snn::MixedInferenceCore::printTimingStats() const {
     ss << "    " << std::setw(maxlen) << std::left << "Total: " << std::setw(0) << " : " << total / 1000000.0 << " ms"
        << std::endl;
     ss << "----------------------------------------------------------------------------------\n";
-    ss << cpuRunTime.print(0) << std::endl;
+    ss << Timer::print(0) << std::endl;
     ss << "==================================================================================\n";
     return ss.str();
 }
@@ -450,4 +475,17 @@ snn::MixedInferenceCore::~MixedInferenceCore() {
         delete gpuRunTime;
     }
     SNN_LOGV("MixedInferenceCore destroyed");
+}
+
+
+void snn::MixedInferenceCore::getInputDims(uint32_t& width, uint32_t& height, uint32_t& depth, uint32_t idx /*= 0*/) const {
+    width = cp.inputsDesc[idx].width;
+    height = cp.inputsDesc[idx].height;
+    depth = cp.inputsDesc[idx].depth;
+}
+
+void snn::MixedInferenceCore::getOutputDims(uint32_t& width, uint32_t& height, uint32_t& depth) const {
+    width = cp.outputDesc.width;
+    height = cp.outputDesc.height;
+    depth = cp.outputDesc.depth;
 }

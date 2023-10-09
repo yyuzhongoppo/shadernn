@@ -30,13 +30,15 @@ namespace dp { // short for Dynamic Pipeline
 // https://arxiv.org/pdf/1803.01534v4.pdf
 class AdaptiveAvgPool2dLayerGl : public GenericConvolutionLayer {
 public:
-    AdaptiveAvgPool2dLayerGl(AdaptiveAvgPool2dDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {}
-    ~AdaptiveAvgPool2dLayerGl() = default;
+    AdaptiveAvgPool2dLayerGl(AdaptiveAvgPool2dDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {
+        _pDesc = &_desc;
+    }
+    virtual ~AdaptiveAvgPool2dLayerGl() = default;
     InferenceGraph::Transform getOutputScaleDimAdjustment() const override;
 
 protected:
-    InferencePassesSptr createFS(const LayerGenOptions&) const override;
-    InferencePassesSptr createCS(const LayerGenOptions&) const override;
+    InferencePassesUptr createFS(const LayerGenOptions&) const override;
+    InferencePassesUptr createCS(const LayerGenOptions&) const override;
 
 private:
     AdaptiveAvgPool2dDesc _desc;

@@ -35,7 +35,9 @@ struct AveragePooling2DDesc : GenericConvDesc {
 // This is a base class to generates a shader for average pooling function
 class AveragePooling2DLayer : public GenericConvolutionLayer {
 public:
-    AveragePooling2DLayer(AveragePooling2DDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {}
+    AveragePooling2DLayer(AveragePooling2DDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {
+        _pDesc = &_desc;
+    }
 
     virtual ~AveragePooling2DLayer() = default;
 

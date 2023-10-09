@@ -16,6 +16,7 @@
 
 #include "snn/snn.h"
 #include "snn/color.h"
+#include "snn/utils.h"
 #include <string>
 #include <vector>
 #include <array>
@@ -29,6 +30,22 @@ namespace snn {
 
 // This structure holds information for one render pass.
 struct InferencePass {
+    InferencePass() = default;
+
+    SNN_NO_COPY(InferencePass);
+
+    InferencePass(InferencePass&& other) = default;
+
+    virtual ~InferencePass() = default;
+
+    // Release resources after they were copied to GPU / RenderPass members
+    // TODO: remove runtime data and delete the whole object
+    virtual void releaseResources() {
+        weightDims = {};
+        _vecWeights.clear();
+        _vecWeights.shrink_to_fit();
+    }
+
     // shader source code
     std::string source;
 
@@ -48,17 +65,17 @@ struct InferencePass {
     // TODO: remove map, because it contain only one element
     std::map<std::string, std::array<uint32_t, 3>> weightDims;
 
-    // Weights, biases and other parameters,
-    // used by some layers
+    // Used in Compute Shader and Vulkan Shader only
+    // only in Conv2D, DepthwiseConv2D and Dense layers
+    // Stores weights in hwo4i4 format, where 4 means 4 alignment
+    // Copied from GenericConvDesc::weightsConv()
     std::vector<float> _vecWeights;
-    std::vector<float> _vecBias;
-    std::vector<float> _vecMean;
-    std::vector<float> _vecVariance;
-    std::vector<float> _vecBeta;
-    std::vector<float> _vecGamma;
 };
 
 struct InferencePasses {
+public:
+    virtual ~InferencePasses() = default;
+
 protected:
     InferencePasses(GpuBackendType backendType_)
         : backendType(backendType_)
@@ -66,8 +83,11 @@ protected:
 
 public:
     const GpuBackendType backendType;
+
+    virtual InferencePass& operator[](size_t i) = 0;
+    virtual const InferencePass& operator[](size_t i) const = 0;
 };
 
-typedef std::shared_ptr<InferencePasses> InferencePassesSptr;
+typedef std::unique_ptr<InferencePasses> InferencePassesUptr;
 
 }   // namespace snn

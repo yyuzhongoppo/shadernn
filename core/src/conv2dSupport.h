@@ -13,27 +13,21 @@
  * limitations under the License.
  */
 #pragma once
-#include "snn/snn.h"
 
-namespace gl {
-class RenderContext;
-}
+#include <snn/mdArray.h>
+#include <vector>
+#include <optional>
 
 namespace snn {
 
-// This class represents OpenGL context
-class GlGpuContext : public GpuContext {
-public:
-    GlGpuContext(bool onlyInitGlExtensions);
+namespace Conv2DSupport {
 
-    virtual ~GlGpuContext();
+typedef MdArray<float, 4> WeightsTensor;
 
-    static GlGpuContext* cast(GpuContext* context);
+typedef MdArrayView<float, 4> WeightsTensorView;
 
-    gl::RenderContext* getRenderContext() { return rc; }
-
-private:
-    gl::RenderContext* rc = nullptr;
-};
+typedef MdArrayView<const float, 4> WeightsTensorConstView;
 
 }
+
+} // namespace snn

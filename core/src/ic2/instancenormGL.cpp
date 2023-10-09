@@ -28,17 +28,17 @@ using namespace snn::dp;
 
 static constexpr const char* INSTANCENORM_CS_ASSET_NAME = "shaders/shadertemplate_cs_instancenorm.glsl";
 
-InferencePassesSptr InstanceNormLayerGl::createFS(const LayerGenOptions& options) const {
+InferencePassesUptr InstanceNormLayerGl::createFS(const LayerGenOptions& options) const {
     (void) options;
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
     SNN_LOGW("No FS implementation for InstanceNorm layer !");
     return ret;
 }
 
-InferencePassesSptr InstanceNormLayerGl::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr InstanceNormLayerGl::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(1);
@@ -140,18 +140,13 @@ InferencePassesSptr InstanceNormLayerGl::createCS(const LayerGenOptions& options
 
     SNN_LOGV("input:%d:%d:%d, output:%d:%d:%d", inputWidth, inputHeight, inputDepth, outputWidth, outputHeight, outputDepth);
 
-    std::vector<float> bnDataVector;
-    std::string bnString;
+    const auto& betaVector = _desc.instanceNormalization.at("beta");
+    SNN_ASSERT(betaVector.size() == _desc.numOutputPlanes);
+    pass._vecBeta = {betaVector.data(), betaVector.size()};
 
-    pass._vecBeta.resize(_desc.numOutputPlanes);
-    bnString     = "beta";
-    bnDataVector = _desc.instanceNormalization.at(bnString);
-    std::memcpy(pass._vecBeta.data(), bnDataVector.data(), _desc.numOutputPlanes * 4);
-
-    pass._vecGamma.resize(_desc.numOutputPlanes);
-    bnString     = "gamma";
-    bnDataVector = _desc.instanceNormalization.at(bnString);
-    std::memcpy(pass._vecGamma.data(), bnDataVector.data(), _desc.numOutputPlanes * 4);
+    const auto& gammaVector = _desc.instanceNormalization.at("gamma");
+    SNN_ASSERT(gammaVector.size() == _desc.numOutputPlanes);
+    pass._vecGamma = {gammaVector.data(), gammaVector.size()};
 
     pass.weightMeta.clear();
     pass.weightMeta.push_back((uint32_t) 0); // 0 means Conv2D layout, 1 means DepthWise Conv2D

@@ -25,6 +25,12 @@ namespace snn {
 
 // This structure holds information for one Vulkan render pass.
 struct InferencePassVulkan : public InferencePass {
+    InferencePassVulkan() = default;
+
+    SNN_NO_COPY(InferencePassVulkan);
+
+    InferencePassVulkan(InferencePassVulkan&& other) = default;
+
     struct VkProgram {
         std::string outputImageUniform;
         uint32_t dispatchSize[3];
@@ -32,14 +38,30 @@ struct InferencePassVulkan : public InferencePass {
 
     VkProgram program;
 
+    void releaseResources() override {
+        InferencePass::releaseResources();
+        vkCodes.clear();
+        vkCodes.shrink_to_fit();
+        specConstants.clear();
+        specConstants.shrink_to_fit();
+        pushConstants.clear();
+        uniformBuffers = {};
+        objectBuffers = {};
+        weightBuffers = {};
+        weightFormats = {};
+    }
+
     // Vulkan SPIR-V codes
     std::vector<uint32_t> vkCodes;
     std::vector<uvkc::vulkan::Pipeline::SpecConstant> specConstants;
     std::map<std::string, std::vector<uvkc::vulkan::Pipeline::SpecConstant>> pushConstants;
     std::map<std::string, std::vector<uint32_t>> uniformBuffers;
-    std::map<std::string, std::vector<float>> objectBuffers;
+    std::map<std::string, ArrayCref<float>> objectBuffers;
+    // Stores weights in hwo4i4 format, where 4 means 4 alignment
+    // Copied from GenericConvDesc::weightsConv()
     std::map<std::string, std::vector<float>> weightBuffers;
     std::map<std::string, snn::ColorFormat> weightFormats;
+    const float dummyValue = 0.0f;
 };
 
 struct InferencePassesVulkan : public InferencePasses {
@@ -56,6 +78,14 @@ struct InferencePassesVulkan : public InferencePasses {
     }
 
     std::vector<InferencePassVulkan> passes;
+
+        InferencePass& operator[](size_t i) override {
+        return passes[i];
+    }
+
+    const InferencePass& operator[](size_t i) const override {
+        return passes[i];
+    }
 };
 
 }   // namespace snn

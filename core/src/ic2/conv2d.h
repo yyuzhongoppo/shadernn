@@ -17,12 +17,11 @@
 #include "genericlayer.h"
 #include "snn/snn.h"
 #include "modelparser.h"
+#include "conv2dSupport.h"
 #include <string>
 #include <vector>
 #include <map>
 #include <utility>
-#include <opencv2/core/mat.hpp>
-#include <opencv2/opencv.hpp>
 
 namespace snn {
 namespace dp { // short for Dynamic Pipeline
@@ -42,7 +41,9 @@ struct Conv2DDesc : GenericConvDesc {
 // This is a base class to generates a shader for 2D convolution
 class Conv2DLayer : public GenericConvolutionLayer {
 public:
-    Conv2DLayer(Conv2DDesc&& d) : GenericConvolutionLayer(d), _desc(std::move(d)) {}
+    Conv2DLayer(Conv2DDesc&& d) : GenericConvolutionLayer(d), _desc(std::move(d)) {
+        _pDesc = &_desc;
+    }
     virtual ~Conv2DLayer() = default;
     virtual InferenceGraph::Transform getOutputScaleDimAdjustment() const override;
 
@@ -52,7 +53,12 @@ protected:
     Conv2DDesc _desc;
 
     void getPaddingOffset(uint32_t (&offsets)[4]) const;
-    static bool oihw2hwo4i4(const std::vector<cv::Mat>& inputWeights, std::vector<float>& outVec, int inChannels,
+
+public:
+    static bool oihw2hwo4i4(const Conv2DSupport::WeightsTensor& inputWeights, std::vector<float>& outVec, int inChannels,
+        int outChannels, int fw, int fh, int unit = 4);
+
+    static bool oihw2hwo4i4fp16(const Conv2DSupport::WeightsTensor& inputWeights, std::vector<float>& outVec, int inChannels,
         int outChannels, int fw, int fh, int unit = 4);
 };
 

@@ -29,13 +29,15 @@ namespace dp { // short for Dynamic Pipeline
 // This is a class to generates a shader for transposed 2D convolution for OpenGL
 class Conv2DTransposeLayerGl : public GenericConvolutionLayer {
 public:
-    Conv2DTransposeLayerGl(Conv2DTransposeDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {}
+    Conv2DTransposeLayerGl(Conv2DTransposeDesc&& d): GenericConvolutionLayer(d), _desc(std::move(d)) {
+        _pDesc = &_desc;
+    }
     virtual ~Conv2DTransposeLayerGl() = default;
     virtual InferenceGraph::Transform getOutputScaleDimAdjustment() const override;
 
 protected:
-    InferencePassesSptr createFS(const LayerGenOptions&) const override;
-    InferencePassesSptr createCS(const LayerGenOptions&) const override;
+    InferencePassesUptr createFS(const LayerGenOptions&) const override;
+    InferencePassesUptr createCS(const LayerGenOptions&) const override;
 
 private:
     Conv2DTransposeDesc _desc;

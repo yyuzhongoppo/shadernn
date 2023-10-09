@@ -31,8 +31,8 @@ using namespace std;
 static constexpr const char* ACTIVATION_VK_ASSET_NAME = "shaders/shadertemplate_vk_activation.spv";
 static constexpr const char* ACTIVATION_VK_FP16_ASSET_NAME = "shaders/shadertemplate_vk_activation_fp16.spv";
 
-InferencePassesSptr ActivationLayerVulkan::createCS(const LayerGenOptions&) const {
-    InferencePassesSptr ret(new InferencePassesVulkan());
+InferencePassesUptr ActivationLayerVulkan::createCS(const LayerGenOptions&) const {
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);
@@ -116,7 +116,7 @@ InferencePassesSptr ActivationLayerVulkan::createCS(const LayerGenOptions&) cons
 
     pass.inputs  = {{"uInput", 0}};
 
-    std::vector<uchar> bytes;
+    std::vector<uint8_t> bytes;
     if (_desc.preferHp) {
         bytes = snn::loadEmbeddedAsset(ACTIVATION_VK_FP16_ASSET_NAME);
         pass.source = ACTIVATION_VK_FP16_ASSET_NAME;

@@ -16,13 +16,13 @@
 
 #include "inferencepass.h"
 #include "snn/color.h"
+#include "conv2dSupport.h"
 #include "glUtils.h"
 #include <string>
 #include <vector>
+#include <memory>
 #include <unordered_map>
 #include <variant>
-#include <opencv2/core/mat.hpp>
-#include <opencv2/opencv.hpp>
 
 #define MIN_SSBO_BUFFER_LEN_ARM_MALI 4
 
@@ -30,6 +30,12 @@ namespace snn {
 
 // This structure holds information for one OpenGL render pass.
 struct InferencePassGl : public InferencePass {
+    InferencePassGl() = default;
+
+    SNN_NO_COPY(InferencePassGl);
+
+    InferencePassGl(InferencePassGl&& other) = default;
+
     struct FsProgram {
         uint32_t outputSliceIndex;
         uint32_t outputSliceCount;
@@ -43,13 +49,43 @@ struct InferencePassGl : public InferencePass {
     // Fragment shader or Compute shader program
     std::variant<FsProgram, CsProgram> program;
 
-    std::vector<cv::Mat> modelWeights;
+    void releaseResources() override {
+        InferencePass::releaseResources();
+        uptrWeightsConvView.reset();
+        // To avoid accidental illegal memory access
+        _vecMean = {nullptr, 0};
+        _vecVariance = {nullptr, 0};
+        _vecBeta = {nullptr, 0};
+        _vecGamma = {nullptr, 0};
+        weightMeta.clear();
+        weightMeta.shrink_to_fit();
+        _vecBias = {nullptr, 0};
+        uniforms = {};
+    }
+
+    // Used in a Fragment Shader only
+    std::unique_ptr<Conv2DSupport::WeightsTensorConstView> uptrWeightsConvView;
+    
+    const Conv2DSupport::WeightsTensorConstView& convWeightsView() const {
+        return *uptrWeightsConvView;
+    }
+
+    // The following 4 members used in OpenGL in Compute Shader only,
+    // in several layers
+    // Holds reference to correspondent layers' members
+    ArrayCref<float> _vecMean;
+    ArrayCref<float> _vecVariance;
+    ArrayCref<float> _vecBeta;
+    ArrayCref<float> _vecGamma;
+
     std::vector<uint32_t> weightMeta;
+
+    // Used in Compute Shader only
+    // Holds reference to _desc.biases
+    ArrayCref<float> _vecBias;
 
     // Other uniforms. Key is shader variable name.
     std::unordered_map<std::string, gl::SimpleUniform::Value> uniforms;
-
-    std::vector<glm::vec4> weightMatrices[4];
 };
 
 struct InferencePassesGl : public InferencePasses {
@@ -66,6 +102,14 @@ struct InferencePassesGl : public InferencePasses {
     }
 
     std::vector<InferencePassGl> passes;
+
+    InferencePass& operator[](size_t i) override {
+        return passes[i];
+    }
+
+    const InferencePass& operator[](size_t i) const override {
+        return passes[i];
+    }
 };
 
 }   // namespace snn

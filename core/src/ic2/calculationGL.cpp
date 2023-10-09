@@ -25,14 +25,14 @@ using namespace snn::dp;
 
 static constexpr const char* CALCULATION_FS_ASSET_NAME = "shaders/shadertemplate_fs_calculation.glsl";
 
-InferencePassesSptr CalculateLayerGl::createFS(const LayerGenOptions&) const {
+InferencePassesUptr CalculateLayerGl::createFS(const LayerGenOptions&) const {
     auto& desc           = getDesc();
     auto numShaderPasses = static_cast<int>(DIV_4_ROUND_UP(desc.numOutputPlanes));
 
     auto preDefine          = "#version 320 es\n";
     auto shaderTemplateCode = loadShader(CALCULATION_FS_ASSET_NAME);
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(numShaderPasses);
     for (int i = 0, j = 0; i < numShaderPasses; i++, j += 4) {

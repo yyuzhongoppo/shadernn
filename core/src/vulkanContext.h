@@ -34,6 +34,8 @@ public:
 
     VulkanGpuContext(std::unique_ptr<uvkc::benchmark::VulkanContext> uvkcContext_);
 
+    virtual ~VulkanGpuContext() = default;
+
     static VulkanGpuContext* cast(GpuContext* context);
 
     uvkc::benchmark::VulkanContext* getUvkcContext() { return uvkcContext.get(); }

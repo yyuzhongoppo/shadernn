@@ -29,10 +29,10 @@ using namespace snn::dp;
 static constexpr const char* DEPTHWISE_CONV2D_VK_ASSET_NAME = "shaders/shadertemplate_vk_depthwise.spv";
 static constexpr const char* DEPTHWISE_CONV2D_VK_FP16_ASSET_NAME = "shaders/shadertemplate_vk_depthwise_fp16.spv";
 
-InferencePassesSptr SeparableConv2DLayerVulkan::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr SeparableConv2DLayerVulkan::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesVulkan());
+    InferencePassesUptr ret(new InferencePassesVulkan());
 
     std::vector<InferencePassVulkan>& passes = InferencePassesVulkan::cast(ret.get())->passes;
     passes.resize(1);
@@ -75,31 +75,26 @@ InferencePassesSptr SeparableConv2DLayerVulkan::createCS(const LayerGenOptions& 
 
     uint32_t dilate = 1;
 
-    oihw2hwo4i4(_desc.weightsCvM, pass._vecWeights, _desc.numInputPlanes, _desc.numOutputPlanes, kernel, kernel);
+    oihw2hwo4i4(_desc.weightsConv(), pass._vecWeights, _desc.numInputPlanes, _desc.numOutputPlanes, kernel, kernel);
 
     std::pair<std::string, std::vector<float>> weightBuffer("2", pass._vecWeights);
-    pass.objectBuffers.insert(weightBuffer);
+    pass.objectBuffers["2"] = {pass._vecWeights.data(), pass._vecWeights.size()};
 
-    pass._vecBias.resize(_desc.numOutputPlanes);
-    for (size_t i = 0; i < _desc.biases.size(); i++) {
-        pass._vecBias[i] = (float) _desc.biases[i];
-    }
-    std::pair<std::string, std::vector<float>> biasBuffer("3", pass._vecBias);
-    pass.objectBuffers.insert(biasBuffer);
+    pass.objectBuffers["3"] = {_desc.biases.data(), _desc.biases.size()};
 
     uint32_t useBatchNorm = 1;
     if (_desc.useBatchNormalization) {
-        std::pair<std::string, std::vector<float>> betaBuffer("4", _desc.batchNormalization.at("beta"));
-        pass.objectBuffers.insert(betaBuffer);
+        const std::vector<float>& beta = _desc.batchNormalization.at("beta");
+        pass.objectBuffers["4"] = {beta.data(), beta.size()};
+        
+        const std::vector<float>& gamma = _desc.batchNormalization.at("gamma");
+        pass.objectBuffers["5"] = {gamma.data(), gamma.size()};
 
-        std::pair<std::string, std::vector<float>> gammaBuffer("5", _desc.batchNormalization.at("gamma"));
-        pass.objectBuffers.insert(gammaBuffer);
+        const std::vector<float>& mean = _desc.batchNormalization.at("movingMean");
+        pass.objectBuffers["6"] = {mean.data(), mean.size()};
 
-        std::pair<std::string, std::vector<float>> meanBuffer("6", _desc.batchNormalization.at("movingMean"));
-        pass.objectBuffers.insert(meanBuffer);
-
-        std::pair<std::string, std::vector<float>> varBuffer("7", _desc.batchNormalization.at("movingVariance"));
-        pass.objectBuffers.insert(varBuffer);
+        const std::vector<float>& variance = _desc.batchNormalization.at("movingVariance");
+        pass.objectBuffers["7"] = {variance.data(), variance.size()};
     } else {
         useBatchNorm = 0;
     }
@@ -138,7 +133,7 @@ InferencePassesSptr SeparableConv2DLayerVulkan::createCS(const LayerGenOptions& 
 
     pass.inputs  = {{"inputImage", 0}};
 
-    std::vector<uchar> bytes;
+    std::vector<uint8_t> bytes;
     if (_desc.preferHp) {
         bytes = snn::loadEmbeddedAsset(DEPTHWISE_CONV2D_VK_FP16_ASSET_NAME);
         pass.source = DEPTHWISE_CONV2D_VK_FP16_ASSET_NAME;

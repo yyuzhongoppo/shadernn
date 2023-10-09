@@ -28,8 +28,8 @@ using namespace std::literals;
 static constexpr const char* CONCATENATION_FS_ASSET_NAME = "shaders/shadertemplate_fs_concat.glsl";
 static constexpr const char* CONCATENATION_CS_ASSET_NAME = "shaders/shadertemplate_cs_concat.glsl";
 
-InferencePassesSptr ConcatenateLayerGl::createFS(const LayerGenOptions&) const {
-    InferencePassesSptr ret(new InferencePassesGl());
+InferencePassesUptr ConcatenateLayerGl::createFS(const LayerGenOptions&) const {
+    InferencePassesUptr ret(new InferencePassesGl());
 
     auto& desc = getDesc();
 
@@ -83,10 +83,10 @@ InferencePassesSptr ConcatenateLayerGl::createFS(const LayerGenOptions&) const {
     return ret;
 }
 
-InferencePassesSptr ConcatenateLayerGl::createCS(const LayerGenOptions& options) const {
+InferencePassesUptr ConcatenateLayerGl::createCS(const LayerGenOptions& options) const {
     (void) options;
 
-    InferencePassesSptr ret(new InferencePassesGl());
+    InferencePassesUptr ret(new InferencePassesGl());
 
     std::vector<InferencePassGl>& passes = InferencePassesGl::cast(ret.get())->passes;
     passes.resize(1);
@@ -173,11 +173,11 @@ bool ConcatenateLayerGl::generateConcatGLSamplingCode(int& idxStartPlane, int nO
 
     int idxCurPlane = 0;
     for (; iterCurTexture != prevLayers.end(); ++iterCurTexture, ++idxCurTexture) {
-        if (1 == (*iterCurTexture)->getDesc().numOutputPlanes) {
+        if (1 == (*iterCurTexture).lock()->getDesc().numOutputPlanes) {
             nTexturePlanes       = 1;
             idxTextureStartPlane = 0;
         } else {
-            nTexturePlanes = (*iterCurTexture)->getDesc().numOutputPlanes;
+            nTexturePlanes = (*iterCurTexture).lock()->getDesc().numOutputPlanes;
         }
         if (idxCurPlane + nTexturePlanes > idxStartPlane) {
             idxTextureStartPlane = idxStartPlane - idxCurPlane;
@@ -206,7 +206,7 @@ bool ConcatenateLayerGl::generateConcatGLSamplingCode(int& idxStartPlane, int nO
         }
 
         int nCurSampledChannels = 1;
-        if (1 == (*iterCurTexture)->getDesc().numOutputPlanes) {
+        if (1 == (*iterCurTexture).lock()->getDesc().numOutputPlanes) {
             varName = formatString("in1_%d", idxVar);
 
             if (idxCurTexture != idxPrevTexture) {
@@ -235,7 +235,7 @@ bool ConcatenateLayerGl::generateConcatGLSamplingCode(int& idxStartPlane, int nO
             std::string samplingSubset = RGBA.substr(nTextureStartChannel, nCurSampledChannels);
 
             if (idxCurTexture != idxPrevTexture) {
-                if ((*iterCurTexture)->getDesc().numOutputPlanes > 4) {
+                if ((*iterCurTexture).lock()->getDesc().numOutputPlanes > 4) {
                     uniformDeclaration = "uniform sampler2DArray " + textureUniformName + ";";
                 } else {
                     uniformDeclaration = "uniform sampler2D " + textureUniformName + ";";
@@ -243,7 +243,7 @@ bool ConcatenateLayerGl::generateConcatGLSamplingCode(int& idxStartPlane, int nO
             }
 
             std::string varAssignment;
-            if ((*iterCurTexture)->getDesc().numOutputPlanes > 4) {
+            if ((*iterCurTexture).lock()->getDesc().numOutputPlanes > 4) {
                 varAssignment = varType + " " + varName + " = texelFetch(" + textureUniformName + ", ivec3(uv," + std::to_string(idxTextureStartT) + "), 0)." +
                                 samplingSubset + ";";
             } else {
@@ -277,7 +277,7 @@ bool ConcatenateLayerGl::generateConcatGLSamplingCode(int& idxStartPlane, int nO
             SNN_ASSERT(idxTextureStartPlane + nCurSampledChannels == nTexturePlanes);
             ++iterCurTexture;
             ++idxCurTexture;
-            nTexturePlanes       = (*iterCurTexture)->getDesc().numOutputPlanes;
+            nTexturePlanes       = (*iterCurTexture).lock()->getDesc().numOutputPlanes;
             idxTextureStartPlane = 0;
         }
     }

@@ -524,7 +524,7 @@ public:
     const TextureDesc& getDesc() const { return _desc; }
 
     GLenum target() const { return _desc.target; }
-    GLenum id() const { return _desc.id; }
+    GLuint id() const { return _desc.id; }
 
     bool empty() const { return 0 == _desc.id; }
 
@@ -714,39 +714,9 @@ public:
 
     ~SimpleGlslProgram() { cleanup(); }
 
-    bool loadVsPs(const char* vscode, const char* pscode) {
-#ifdef _DEBUG
-        if (vscode) {
-            vsSource = vscode;
-        }
-        if (pscode) {
-            psSource = pscode;
-        }
-#endif
-        cleanup();
-        AutoShader vs = loadShaderFromString(vscode, 0, GL_VERTEX_SHADER, name.c_str());
-        AutoShader ps = loadShaderFromString(pscode, 0, GL_FRAGMENT_SHADER, name.c_str());
-        if ((vscode && !vs) || (pscode && !ps)) {
-            return false;
-        }
-        _program = linkProgram({vs, ps}, name.c_str());
-        return _program != 0;
-    }
+    bool loadVsPs(const char* vscode, const char* pscode);
 
-    bool loadCs(const char* code) {
-#ifdef _DEBUG
-        if (code) {
-            csSource = code;
-        }
-#endif
-        cleanup();
-        AutoShader cs = loadShaderFromString(code, 0, GL_COMPUTE_SHADER, name.c_str());
-        if (!cs) {
-            return false;
-        }
-        _program = linkProgram({cs}, name.c_str());
-        return _program != 0;
-    }
+    bool loadCs(const char* code);
 
     void use() const { GLCHKDBG(glUseProgram(_program)); }
 
