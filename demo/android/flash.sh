@@ -45,8 +45,27 @@ push_phone_json_models()
     adb shell chmod -R 777 /data/local/tmp/jsonModel
 }
 
+push_phone_unit_tests()
+{
+    device_dir="/data/local/tmp/"
+    device_assets_dir="/data/local/tmp/files"
+    lib_snn="${ROOT}/../../snn-core-install/lib/arm64-v8a/libsnn_core.so"
+    libs_opencv_dir="${ROOT}/../../core/3rdparty/opencv/android/lib/arm64-v8a/"
+    tests_dir="${ROOT}/../build-test/test/unittest/"
+    assets_dir="${ROOT}/../../core/data/assets/"
+    adb shell rm -rf ${device_dir}/libsnn_core.so
+    adb shell rm -rf ${device_dir}/libopencv*.so
+    adb push ${lib_snn} ${device_dir}
+    adb push ${libs_opencv_dir}/* ${device_dir}
+    adb shell rm -rf ${device_dir}/*Test
+    adb push ${tests_dir}/*Test ${device_dir}
+    adb push ${assets_dir} ${device_assets_dir}
+}
+
 if [ "$1" == "models" ]; then
     push_phone_json_models
+elif [ "$1" == "tests" ]; then
+    push_phone_unit_tests $1
 else 
     ${ROOT}/gradlew installDebug
 fi

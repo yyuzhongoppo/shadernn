@@ -75,13 +75,8 @@ static int test_instancenorm(int w, int h, int c, float eps /*= 0.00001f*/, int 
 
     cv::Mat inputMat = NCNNMat2CVMat(padA);
 
-    std::vector<cv::Mat> inputWeights = std::vector<cv::Mat>(c * outch);
+    std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights = ncnn2Conv2D(weights[0], outch, c, kernel, kernel);
     std::vector<float> inputBias      = std::vector<float>(outch, 0.0f);
-
-    for (size_t p = 0; p < inputWeights.size(); p++) {
-        inputWeights[p] = cv::Mat(kernel, kernel, CV_32FC1);
-        memcpy((uchar*) inputWeights[p].data, (uchar*) weights[0].data + kernel * kernel * sizeof(float) * p, kernel * kernel * sizeof(float));
-    }
 
     if (bias) {
         const float* ptr = weights[1].channel(0);
@@ -98,7 +93,7 @@ static int test_instancenorm(int w, int h, int c, float eps /*= 0.00001f*/, int 
     batchNormalization["gamma"] = bnGamma;
     batchNormalization["beta"]  = bnBeta;
 
-    auto outFile = test.snnInstanceNormTestWithLayer(inputMat, inputWeights, inputBias, w, h, c, outch, kernel, dilation, stride, pad, bias, useCompute,
+    auto outFile = test.snnInstanceNormTestWithLayer(inputMat, std::move(inputWeights), inputBias, w, h, c, outch, kernel, dilation, stride, pad, bias, useCompute,
                                                      useBN, batchNormalization);
     printf("Output file:%s\n", formatString("%s/%s", DUMP_DIR, outFile.c_str()).c_str());
     auto snnOutput = getSNNLayer(formatString("%s/%s", DUMP_DIR, outFile.c_str()).c_str(), false, outch);

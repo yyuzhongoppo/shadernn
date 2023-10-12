@@ -37,11 +37,9 @@ void Yolov3ProcessorVulkan::init(const FrameDims& inputDims_, const FrameDims& o
                                             modelDims.width, modelDims.height, 1, 4};
     options.desiredInput.push_back(inputTex);
 
-    options.desiredOutputFormat  = desc().o.format;
     options.preferrHalfPrecision = (precision == Precision::FP16);
 
     options.mrtMode    = snn::MRTMode::SINGLE_PLANE;
-    options.weightMode = snn::WeightAccessMethod::CONSTANTS;
     genericModelProcessorVulkan.reset(new GenericModelProcessorVulkan(*this,
         outputDims_,
         options,
@@ -100,7 +98,6 @@ Yolov3ProcessorVulkan::~Yolov3ProcessorVulkan()
 
 void Yolov3ProcessorVulkan::submit(Workload& workload) {
     MixedInferenceCore::RunParameters rp = {};
-    rp.inputMatrix                       = workload.cpuInputs;
     rp.modelOutput.modelType             = ModelType::DETECTION;
 
     genericModelProcessorVulkan->submit(workload, rp);

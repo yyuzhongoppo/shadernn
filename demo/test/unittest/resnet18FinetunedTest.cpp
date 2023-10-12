@@ -13,6 +13,6 @@
  * limitations under the License.
  */
 #define NCNN_MODEL_NAME "resnet18_cifar10"
-#define SNN_MODEL_NAME  "resnet18_cifar10.json"
+#define SNN_MODEL_NAME  "resnet18_cifar10_layers.json"
 
 #include "resnet18Test.cpp"

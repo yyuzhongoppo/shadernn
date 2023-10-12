@@ -42,7 +42,6 @@ std::shared_ptr<snn::InferenceProcessor> snn::InferenceProcessor::create(bool us
 
 void snn::InferenceProcessor::initialize(const InitializationParameters& cp) {
     _modelFileName      = cp.modelName;
-    _inputList          = cp.inputList;
     this->dumpOutputs   = cp.dumpOutputs;
     this->halfPrecision = cp.halfPrecision;
     startRun = std::chrono::high_resolution_clock::now();
@@ -52,12 +51,13 @@ void snn::InferenceProcessor::initialize(const InitializationParameters& cp) {
         SNN_LOGI("Loading asset : %s ..., fp16: %d", _modelFileName.c_str(), cp.halfPrecision);
         auto dp = snn::dp::loadFromJsonModel(_modelFileName, cp.useVulkanShader, cp.mrtMode, cp.weightMode, options.preferrHalfPrecision);
 
-        auto inputTex = InferenceGraph::IODesc {ColorFormat::RGBA8, cp.inputList[0].second[0],
+        if (!cp.inputList.empty()) {
+            auto inputTex = InferenceGraph::IODesc {ColorFormat::RGBA8, cp.inputList[0].second[0],
                                                     cp.inputList[0].second[1], cp.inputList[0].second[2], 4};
-        options.desiredInput.push_back(inputTex);
+            options.desiredInput.push_back(inputTex);
+        }
 
         options.compute             = cp.useComputeShader;
-        options.desiredOutputFormat = ColorFormat::RGBA8;
         options.mrtMode             = cp.mrtMode;
         options.weightMode          = cp.weightMode;
         options.vulkan              = cp.useVulkanShader;
@@ -74,10 +74,10 @@ void snn::InferenceProcessor::initialize(const InitializationParameters& cp) {
 
 int32_t snn::InferenceProcessor::preProcess(snn::ImageTextureArrayAccessor inputTexs) {
     _inputTexs.deallocate();
-    _inputTexs.allocate(_inputList.size());
+    _inputTexs.allocate(inputTexs.size());
 
     // Copy the input textures
-    for (size_t i = 0; i < _inputList.size(); ++i) {
+    for (size_t i = 0; i < inputTexs.size(); ++i) {
         _inputTexs[i].attach(&inputTexs[i]);
     }
     SNN_LOGD("texture: %s", _inputTexs[0].getTextureInfo2().c_str());
@@ -91,12 +91,9 @@ static constexpr size_t NUM_EXCLUDE_FIRST_LOOPS = 5;
 int32_t snn::InferenceProcessor::process(snn::ImageTextureArrayAccessor outputTexs) {
     SNN_LOGD("texture: %s", _inputTexs[0].getTextureInfo2().c_str());
 
-    auto outVec    = std::vector<std::vector<std::vector<float>>>();
-    auto inVec     = std::vector<std::vector<std::vector<float>>>();
-
     snn::SNNModelOutput modelOutput;
     modelOutput.modelType = modelType;
-    snn::MixedInferenceCore::RunParameters rp = {_inputTexs, outputTexs, inVec, outVec, modelOutput};
+    snn::MixedInferenceCore::RunParameters rp = {_inputTexs, outputTexs, modelOutput};
 #ifdef PROFILING
     std::map<std::string, std::vector<double>> timeMap;
     snn::Timer cpuRunTime("IC2 CPU time all iteraiions");

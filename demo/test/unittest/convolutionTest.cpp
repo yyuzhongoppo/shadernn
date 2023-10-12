@@ -127,13 +127,8 @@ static int test_convolution(int w, int h, int c, int outch, int kernel, int dila
     ShaderUnitTest test(backend);
     cv::Mat        inputMat = NCNNMat2CVMat(padA);
 
-    std::vector<cv::Mat> inputWeights = std::vector<cv::Mat>(c * outch);
+    std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights = ncnn2Conv2D(weights[0], outch, c, kernel, kernel);
     std::vector<float>   inputBias    = std::vector<float>(outch, 0.0f);
-
-    for (size_t p = 0; p < inputWeights.size(); p++) {
-        inputWeights[p] = cv::Mat(kernel, kernel, CV_32FC1);
-        memcpy((uchar *) inputWeights[p].data, (uchar *) weights[0].data + kernel * kernel * sizeof(float) * p, kernel * kernel * sizeof(float));
-    }
 
     if (bias) {
         const float * ptr = weights[1].channel(0);
@@ -150,7 +145,7 @@ static int test_convolution(int w, int h, int c, int outch, int kernel, int dila
     batchNormalization["movingVariance"] = bnVar;
     batchNormalization["beta"]           = bnBeta;
 
-    auto outFile = test.snnConvTestWithLayer(inputMat, inputWeights, inputBias, w, h, c, outch, kernel, dilation, stride, pad, useCompute, mrtMode, useBN,
+    auto outFile = test.snnConvTestWithLayer(inputMat, std::move(inputWeights), inputBias, w, h, c, outch, kernel, dilation, stride, pad, useCompute, mrtMode, useBN,
                                              batchNormalization, true, fp16);
     printf("Output file:%s\n", formatString("%s/%s", DUMP_DIR, outFile.c_str()).c_str());
     auto snnOutput = getSNNLayer(formatString("%s/%s", DUMP_DIR, outFile.c_str()).c_str(), false, outch);
@@ -214,11 +209,7 @@ void debug_conv2d_layer4(snn::GpuBackendType backend) {
 
     cv::Mat inputMat = NCNNMat2CVMat(snnMat);
 
-    std::vector<cv::Mat> inputWeights = std::vector<cv::Mat>(inChs * outChs);
-    for (size_t p = 0; p < inputWeights.size(); p++) {
-        inputWeights[p] = cv::Mat(kernel, kernel, CV_32FC1);
-        memcpy((uchar *) inputWeights[p].data, (uchar *) convWeights[0].data + kernel * kernel * sizeof(float) * p, kernel * kernel * sizeof(float));
-    }
+    std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights = ncnn2Conv2D(convWeights[0], outChs, inChs, kernel, kernel);
     std::vector<float> inputBias;
     ncnnToVec(convWeights[1], inputBias);
 
@@ -240,7 +231,7 @@ void debug_conv2d_layer4(snn::GpuBackendType backend) {
     batchNormalization["movingVariance"] = bnVar;
     batchNormalization["beta"]           = bnBeta;
 
-    auto outFile   = test.snnConvTestWithLayer(inputMat, inputWeights, inputBias, width, height, inChs, outChs, kernel, dilation, stride, pad, useCompute,
+    auto outFile   = test.snnConvTestWithLayer(inputMat, std::move(inputWeights), inputBias, width, height, inChs, outChs, kernel, dilation, stride, pad, useCompute,
                                              snn::MRTMode::SINGLE_PLANE, useBN, batchNormalization);
     auto snnOutput = getSNNLayer(formatString("%s/%s", DUMP_DIR, outFile.c_str()).c_str(), false, outChs);
 
@@ -288,11 +279,7 @@ void debug_conv2d_layer3(snn::GpuBackendType backend) {
 
     cv::Mat inputMat = NCNNMat2CVMat(snnMat);
 
-    std::vector<cv::Mat> inputWeights = std::vector<cv::Mat>(inChs * outChs);
-    for (size_t p = 0; p < inputWeights.size(); p++) {
-        inputWeights[p] = cv::Mat(kernel, kernel, CV_32FC1);
-        memcpy((uchar *) inputWeights[p].data, (uchar *) convWeights[0].data + kernel * kernel * sizeof(float) * p, kernel * kernel * sizeof(float));
-    }
+    std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights = ncnn2Conv2D(convWeights[0], outChs, inChs, kernel, kernel);
     std::vector<float> inputBias;
     ncnnToVec(convWeights[1], inputBias);
 
@@ -304,7 +291,7 @@ void debug_conv2d_layer3(snn::GpuBackendType backend) {
     std::vector<float> bnVar;
     std::vector<float> bnBeta;
 
-    auto outFile   = test.snnConvTestWithLayer(inputMat, inputWeights, inputBias, width, height, inChs, outChs, kernel, dilation, stride, pad, useCompute,
+    auto outFile   = test.snnConvTestWithLayer(inputMat, std::move(inputWeights), inputBias, width, height, inChs, outChs, kernel, dilation, stride, pad, useCompute,
                                              snn::MRTMode::SINGLE_PLANE, useBN, batchNormalization);
     auto snnOutput = getSNNLayer(formatString("%s/%s", DUMP_DIR, outFile.c_str()).c_str(), false, outChs);
     ncnnMat        = getNCNNLayer(formatString("%s/jsonModel/resnet18_cifar10_0223", ASSETS_DIR).c_str(),
@@ -383,13 +370,8 @@ int compareConvolution(const std::string & modelName, int layerId, const std::st
 
     cv::Mat inputMat = NCNNMat2CVMat(inputNCNN);
 
-    std::vector<cv::Mat> inputWeights = std::vector<cv::Mat>(inChs * outChs);
+    std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights = ncnn2Conv2D(weights[0], outChs, inChs, kernel, kernel);
     std::vector<float>   inputBias    = std::vector<float>(outChs, 0.0f);
-
-    for (size_t p = 0; p < inputWeights.size(); p++) {
-        inputWeights[p] = cv::Mat(kernel, kernel, CV_32FC1);
-        memcpy((uchar *) inputWeights[p].data, (uchar *) weights[0].data + kernel * kernel * sizeof(float) * p, kernel * kernel * sizeof(float));
-    }
 
     bool                                      useBN = true;
     std::map<std::string, std::vector<float>> batchNormalization;
@@ -398,7 +380,7 @@ int compareConvolution(const std::string & modelName, int layerId, const std::st
     batchNormalization["movingVariance"] = bnVar;
     batchNormalization["beta"]           = bnBeta;
 
-    auto outFile   = test.snnConvTestWithLayer(inputMat, inputWeights, inputBias, dim, dim, inChs, outChs, kernel, 1, stride, 0, false,
+    auto outFile   = test.snnConvTestWithLayer(inputMat, std::move(inputWeights), inputBias, dim, dim, inChs, outChs, kernel, 1, stride, 0, false,
                                              snn::MRTMode::SINGLE_PLANE, useBN, batchNormalization);
     auto snnOutput = getSNNLayer(formatString("%s/%s", DUMP_DIR, outFile.c_str()).c_str(), false, outChs);
 

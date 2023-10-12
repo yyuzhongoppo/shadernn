@@ -34,10 +34,8 @@ void SpatialDenoiserVulkan::init(const FrameDims& inputDims_, const FrameDims& o
                                             inputDims_.width, inputDims_.height, 1, 4};
     options.desiredInput.push_back(inputTex);
 
-    options.desiredOutputFormat  = desc().o.format;
     options.preferrHalfPrecision = (precision == Precision::FP16);
     options.mrtMode              = snn::MRTMode::SINGLE_PLANE;
-    options.weightMode           = snn::WeightAccessMethod::CONSTANTS;
 
     genericModelProcessorVulkan.reset(new GenericModelProcessorVulkan(*this,
         outputDims_,

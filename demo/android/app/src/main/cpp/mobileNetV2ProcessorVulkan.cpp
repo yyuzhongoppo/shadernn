@@ -33,9 +33,7 @@ void MobileNetV2ProcessorVulkan::init(const FrameDims& inputDims_, const FrameDi
                                             modelDims.width, modelDims.height, 1, 4};
     options.desiredInput.push_back(inputTex);
 
-    options.desiredOutputFormat  = options.preferrHalfPrecision ? snn::ColorFormat::RGBA16F : snn::ColorFormat::RGBA32F;
     options.mrtMode              = snn::MRTMode::SINGLE_PLANE;
-    options.weightMode           = snn::WeightAccessMethod::TEXTURES;
 
     genericModelProcessorVulkan.reset(new GenericModelProcessorVulkan(*this,
         outputDims_,
@@ -50,7 +48,6 @@ void MobileNetV2ProcessorVulkan::init(const FrameDims& inputDims_, const FrameDi
 
 void MobileNetV2ProcessorVulkan::submit(Workload& workload) {
     MixedInferenceCore::RunParameters rp = {};
-    rp.inputMatrix                       = workload.cpuInputs;
     rp.modelOutput.modelType             = ModelType::CLASSIFICATION;
 
     genericModelProcessorVulkan->submit(workload, rp);

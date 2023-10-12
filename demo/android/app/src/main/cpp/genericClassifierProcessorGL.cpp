@@ -168,7 +168,6 @@ void GenericClassifierProcessorGL::submit(Processor::Workload& workload) {
         options.desiredInput.push_back(inputTex);
 
         options.compute              = modelProcessorParams.compute;
-        options.desiredOutputFormat  = inputDesc.format;
         options.preferrHalfPrecision = modelProcessorParams.precision == Precision::FP16;
 
         options.mrtMode    = snn::MRTMode::SINGLE_PLANE;
@@ -186,7 +185,6 @@ void GenericClassifierProcessorGL::submit(Processor::Workload& workload) {
     SNN_ASSERT(inputDesc.device == Device::GPU);
 
     MixedInferenceCore::RunParameters rp = {};
-    rp.inputMatrix                       = workload.cpuInputs;
     rp.modelOutput.modelType             = ModelType::CLASSIFICATION;
 
     snn::ImageTextureGLArray inputTexs;

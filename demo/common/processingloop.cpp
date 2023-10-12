@@ -37,7 +37,7 @@ class MainProcessingLoop::Impl
     CreationParamaters _cp;
     Timer _frameTime  = Timer("Total frame time.");
 
-    bool switchEngineTo(InferenceEngine::AlgorithmConfig a) {
+    bool switchEngineTo(const InferenceEngine::AlgorithmConfig& a) {
         if (_inferenceEngine && _algorithm == a) {
             return false; // check for redundant switch
         }

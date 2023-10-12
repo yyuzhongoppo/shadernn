@@ -27,6 +27,7 @@
 #include "snn/color.h"
 #include "snn/snn.h"
 #include "snn/utils.h"
+#include "conv2dSupport.h"
 #include "mat.h"
 #include <opencv2/core/mat.hpp>
 #include <iostream>
@@ -105,4 +106,6 @@ std::vector<ncnn::Mat> getBatchNormFromNCNN(const std::string& modelName, int la
 
 ncnn::Mat customizeNCNNLayer(const std::string& modelName, const std::string& inputImage, const std::string& layerType,
     const std::string& layerInputFile, int target_size, int inputChannels, int outputChannels, int kernelSize, int padding, int stride, int layerId);
+
+std::unique_ptr<snn::Conv2DSupport::WeightsTensor> ncnn2Conv2D(const ncnn::Mat& weight, uint32_t o, uint32_t i, uint32_t h, uint32_t w);
 #endif  //__MATUTIL_H__

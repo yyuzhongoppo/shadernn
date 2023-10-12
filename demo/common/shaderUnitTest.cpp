@@ -39,6 +39,7 @@
 #include "ic2/upsampling2d.h"
 #include "ic2/yololayer.h"
 #include "ic2/unary.h"
+#include "conv2dSupport.h"
 
 #define NEW_LAYER(layer, desc) \
     std::shared_ptr<snn::dp::GenericModelLayer>(snn::dp::layer##Creator1(std::move(desc), useVulkan()));
@@ -171,12 +172,10 @@ snn::ImageTextureArray ShaderUnitTest::createOutputImgTxt(int outWidth, int outH
     return outputTexs;
 }
 
-std::string ShaderUnitTest::snnConvTestWithLayer(cv::Mat& inputMat, std::vector<cv::Mat>& inputWeights, std::vector<float>& inputBias, int width, int height,
+std::string ShaderUnitTest::snnConvTestWithLayer(cv::Mat& inputMat, std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights, std::vector<float>& inputBias, int width, int height,
     int inChannels, int outChannels, int kernel, int dilation, int stride, int pad, bool useCompute, snn::MRTMode mrtMode,
     bool useBatchNorm, std::map<std::string, std::vector<float>>& batchNormalization, bool dumpOutput, bool fp16) {
     std::string ret;
-    std::vector<double> doubleBias(inputBias.size(), 0);
-    std::transform(inputBias.begin(), inputBias.end(), doubleBias.begin(), [](float x) { return (double) x; });
 
     SNN_LOGD("width:%d, height:%d, inChannels:%d, outChannels:%d, kernel:%d, dilation:%d, stride:%d, pad:%d, useCompute:%d",
              width, height, inChannels, outChannels, kernel, dilation, stride, pad, useCompute);
@@ -205,8 +204,8 @@ std::string ShaderUnitTest::snnConvTestWithLayer(cv::Mat& inputMat, std::vector<
     desc.isRange01             = 0;
     desc.numOutputPlanes       = outChannels;
     desc.numInputPlanes        = inChannels;
-    desc.weightsCvM            = inputWeights;
-    desc.biases                = doubleBias;
+    desc.uptrWeights             = std::move(inputWeights);
+    desc.biases.swap(inputBias);
     desc.activation            = "";
     desc.kernelSize            = kernel;
     desc.stride                = stride;
@@ -251,7 +250,6 @@ std::string ShaderUnitTest::snnConvTestWithLayer(cv::Mat& inputMat, std::vector<
                                                  (uint32_t)width, (uint32_t)height, UP_DIV(inChannels, ALIGNED_CH), 4U};
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.compute                   = useCompute;
     sgo.vulkan                    = useVulkan();
@@ -269,7 +267,7 @@ std::string ShaderUnitTest::snnConvTestWithLayer(cv::Mat& inputMat, std::vector<
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels, fp16);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = layer->getName() + " pass[" + std::to_string(0) + "].dump";
@@ -333,7 +331,6 @@ std::string ShaderUnitTest::snnDenseTestWithLayer(cv::Mat& inputMat, std::vector
                                                  (uint32_t)width, (uint32_t)height, UP_DIV(inChannels, ALIGNED_CH), 4U};
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.compute                   = !useVulkan();
     sgo.vulkan                    = useVulkan();
@@ -354,7 +351,7 @@ std::string ShaderUnitTest::snnDenseTestWithLayer(cv::Mat& inputMat, std::vector
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = layer->getName() + " pass[" + std::to_string(0) + "].dump";
@@ -447,7 +444,6 @@ std::string ShaderUnitTest::snnPoolingTestWithLayer(cv::Mat& inputMat, int width
                                                  (uint32_t)width, (uint32_t)height, UP_DIV(inChannels, ALIGNED_CH), 4U};
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.compute                   = !useVulkan();
     sgo.vulkan                    = useVulkan();
@@ -464,7 +460,7 @@ std::string ShaderUnitTest::snnPoolingTestWithLayer(cv::Mat& inputMat, int width
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = layer->getName() + " pass[" + std::to_string(0) + "].dump";
@@ -550,7 +546,6 @@ std::string ShaderUnitTest::snnAddTestWithLayer2(cv::Mat& inputMat, int width, i
                                                  (uint32_t)width, (uint32_t)height, UP_DIV(inChannels, ALIGNED_CH), 4U};
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.compute                   = !useVulkan();
     sgo.vulkan                    = useVulkan();
@@ -568,7 +563,7 @@ std::string ShaderUnitTest::snnAddTestWithLayer2(cv::Mat& inputMat, int width, i
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = addLayer->getName() + " pass[" + std::to_string(0) + "].dump";
@@ -653,7 +648,6 @@ std::string ShaderUnitTest::snnMultiInputsTestWithLayer(cv::Mat& inputMat1, cv::
     sgo.desiredInput.push_back(inputTex);
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.compute                   = !useVulkan();
     sgo.vulkan                    = useVulkan();
@@ -676,7 +670,7 @@ std::string ShaderUnitTest::snnMultiInputsTestWithLayer(cv::Mat& inputMat1, cv::
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = addLayer->getName() + " pass[" + std::to_string(0) + "].dump";
@@ -757,7 +751,6 @@ std::string ShaderUnitTest::snnUpsampleTestWithLayer(cv::Mat& inputMat, int widt
                                                  (uint32_t)width, (uint32_t)height, UP_DIV(inChannels, ALIGNED_CH), 4U};
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.compute                   = !useVulkan();
     sgo.vulkan                    = useVulkan();
@@ -772,7 +765,7 @@ std::string ShaderUnitTest::snnUpsampleTestWithLayer(cv::Mat& inputMat, int widt
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = layer->getName() + " pass[" + std::to_string(0) + "].dump";
@@ -876,7 +869,6 @@ std::string ShaderUnitTest::snnConcateTestWithLayer(cv::Mat& inputMat, int width
                                                  (uint32_t)width, (uint32_t)height, UP_DIV(inChannels, ALIGNED_CH), 4U};
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.compute                   = !useVulkan();
     sgo.vulkan                    = useVulkan();
@@ -891,7 +883,7 @@ std::string ShaderUnitTest::snnConcateTestWithLayer(cv::Mat& inputMat, int width
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = concatLayer1->getName() + " pass[" + std::to_string(0) + "].dump";
@@ -899,12 +891,10 @@ std::string ShaderUnitTest::snnConcateTestWithLayer(cv::Mat& inputMat, int width
 }
 
 
-std::string ShaderUnitTest::snnDepthConvTestWithLayer(cv::Mat& inputMat, std::vector<cv::Mat>& inputWeights, std::vector<float>& inputBias, int width,
+std::string ShaderUnitTest::snnDepthConvTestWithLayer(cv::Mat& inputMat, std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights, std::vector<float>& inputBias, int width,
     int height, int inChannels, int outChannels, int kernel, int dilation, int stride, int pad, int bias,
     bool useCompute, bool useBatchNorm, std::map<std::string, std::vector<float>>& batchNormalization, bool dumpOutput) {
     std::string ret;
-    std::vector<double> doubleBias(inputBias.size(), 0);
-    std::transform(inputBias.begin(), inputBias.end(), doubleBias.begin(), [](float x) { return (double) x; });
 
     SNN_LOGV("width:%d, height:%d, inChannels:%d, outChannels:%d, kernel:%d, dilation:%d, stride:%d, pad:%d, bias:%d, useCompute:%d",
              width, height, inChannels, outChannels, kernel, dilation, stride, pad, bias, useCompute);
@@ -932,8 +922,8 @@ std::string ShaderUnitTest::snnDepthConvTestWithLayer(cv::Mat& inputMat, std::ve
     desc.isRange01       = 0;
     desc.numOutputPlanes = outChannels;
     desc.numInputPlanes  = inChannels;
-    desc.weightsCvM      = inputWeights;
-    desc.biases          = doubleBias;
+    desc.uptrWeights       = std::move(inputWeights);
+    desc.biases.swap(inputBias);
     desc.activation            = "";
     desc.kernelSize            = kernel;
     desc.stride                = stride;
@@ -970,7 +960,6 @@ std::string ShaderUnitTest::snnDepthConvTestWithLayer(cv::Mat& inputMat, std::ve
                                                  (uint32_t)width, (uint32_t)height, UP_DIV(inChannels, ALIGNED_CH), 4U};
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.compute                   = useCompute;
     sgo.vulkan                    = useVulkan();
@@ -988,7 +977,7 @@ std::string ShaderUnitTest::snnDepthConvTestWithLayer(cv::Mat& inputMat, std::ve
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = layer->getName() + " pass[" + std::to_string(0) + "].dump";
@@ -998,12 +987,10 @@ std::string ShaderUnitTest::snnDepthConvTestWithLayer(cv::Mat& inputMat, std::ve
     return ret;
 }
 
-std::string ShaderUnitTest::snnInstanceNormTestWithLayer(cv::Mat& inputMat, std::vector<cv::Mat>& inputWeights, std::vector<float>& inputBias, int width,
+std::string ShaderUnitTest::snnInstanceNormTestWithLayer(cv::Mat& inputMat, std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights, std::vector<float>& inputBias, int width,
     int height, int inChannels, int outChannels, int kernel, int dilation, int stride, int pad, int bias,
     bool useCompute, bool useBatchNorm, std::map<std::string, std::vector<float>>& batchNormalization, bool dumpOutput) {
     std::string ret;
-    std::vector<double> doubleBias(inputBias.size(), 0);
-    std::transform(inputBias.begin(), inputBias.end(), doubleBias.begin(), [](float x) { return (double) x; });
 
     SNN_LOGV("width:%d, height:%d, inChannels:%d, outChannels:%d, kernel:%d, dilation:%d, stride:%d, pad:%d, bias:%d, useCompute:%d",
              width, height, inChannels, outChannels, kernel, dilation, stride, pad, bias, useCompute);
@@ -1031,8 +1018,8 @@ std::string ShaderUnitTest::snnInstanceNormTestWithLayer(cv::Mat& inputMat, std:
     desc.isRange01       = 0;
     desc.numOutputPlanes = outChannels;
     desc.numInputPlanes  = inChannels;
-    desc.weightsCvM      = inputWeights;
-    desc.biases          = doubleBias;
+    desc.uptrWeights       = std::move(inputWeights);
+    desc.biases.swap(inputBias);
     desc.activation               = "";
     desc.kernelSize               = kernel;
     desc.stride                   = stride;
@@ -1063,7 +1050,6 @@ std::string ShaderUnitTest::snnInstanceNormTestWithLayer(cv::Mat& inputMat, std:
                                                  (uint32_t)width, (uint32_t)height, UP_DIV(inChannels, ALIGNED_CH), 4U};
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.compute                   = !useVulkan();
     sgo.vulkan                    = useVulkan();
@@ -1078,7 +1064,7 @@ std::string ShaderUnitTest::snnInstanceNormTestWithLayer(cv::Mat& inputMat, std:
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = layer->getName() + " pass[" + std::to_string(0) + "].dump";
@@ -1152,7 +1138,6 @@ std::string ShaderUnitTest::snnPadTestWithLayer(cv::Mat& inputMat, int width, in
                                                  (uint32_t)width, (uint32_t)height, UP_DIV(inChannels, ALIGNED_CH), 4U};
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.compute                   = !useVulkan();
     sgo.vulkan                    = useVulkan();
@@ -1167,19 +1152,17 @@ std::string ShaderUnitTest::snnPadTestWithLayer(cv::Mat& inputMat, int width, in
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = layer->getName() + " pass[" + std::to_string(0) + "].dump";
     return ret;
 }
 
-std::string ShaderUnitTest::snnBatchNormTestWithLayer(cv::Mat& inputMat, std::vector<cv::Mat>& inputWeights, std::vector<float>& inputBias, int width,
+std::string ShaderUnitTest::snnBatchNormTestWithLayer(cv::Mat& inputMat, std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights, std::vector<float>& inputBias, int width,
     int height, int inChannels, int outChannels, int kernel, int dilation, int stride, int pad, int bias,
     bool useCompute, bool useBatchNorm, std::map<std::string, std::vector<float>>& batchNormalization, bool dumpOutput) {
     std::string ret;
-    std::vector<double> doubleBias(inputBias.size(), 0);
-    std::transform(inputBias.begin(), inputBias.end(), doubleBias.begin(), [](float x) { return (double) x; });
 
     SNN_LOGD("width:%d, height:%d, inChannels:%d, outChannels:%d, kernel:%d, dilation:%d, stride:%d, pad:%d, bias:%d, useCompute:%d",
              width, height, inChannels, outChannels, kernel, dilation, stride, pad, bias, useCompute);
@@ -1207,8 +1190,8 @@ std::string ShaderUnitTest::snnBatchNormTestWithLayer(cv::Mat& inputMat, std::ve
     desc.isRange01          = 0;
     desc.numOutputPlanes    = outChannels;
     desc.numInputPlanes     = inChannels;
-    desc.weightsCvM         = inputWeights;
-    desc.biases             = doubleBias;
+    desc.uptrWeights          = std::move(inputWeights);
+    desc.biases.swap(inputBias);
     desc.batchNormalization = batchNormalization;
     desc.activation         = "";
     desc.kernelSize         = kernel;
@@ -1237,7 +1220,6 @@ std::string ShaderUnitTest::snnBatchNormTestWithLayer(cv::Mat& inputMat, std::ve
                                                  (uint32_t)width, (uint32_t)height, UP_DIV(inChannels, ALIGNED_CH), 4U};
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.compute                   = !useVulkan();
     sgo.vulkan                    = useVulkan();
@@ -1252,7 +1234,7 @@ std::string ShaderUnitTest::snnBatchNormTestWithLayer(cv::Mat& inputMat, std::ve
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = layer->getName() + " pass[" + std::to_string(0) + "].dump";
@@ -1314,7 +1296,6 @@ std::string ShaderUnitTest::snnActivationTestWithLayer(cv::Mat& inputMat, int wi
                                                  (uint32_t)width, (uint32_t)height, UP_DIV(inChannels, ALIGNED_CH), 4U};
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.mrtMode                   = snn::MRTMode::SINGLE_PLANE;
     sgo.compute                   = !useVulkan();
@@ -1330,7 +1311,7 @@ std::string ShaderUnitTest::snnActivationTestWithLayer(cv::Mat& inputMat, int wi
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = actLayer->getName() + " pass[" + std::to_string(0) + "].dump";
@@ -1650,7 +1631,6 @@ std::string ShaderUnitTest::snnFlattenTestWithLayer(cv::Mat& inputMat, int width
                                                  (uint32_t)width, (uint32_t)height, UP_DIV(inChannels, ALIGNED_CH), 4U};
     sgo.desiredInput.push_back(inputTex);
 
-    sgo.desiredOutputFormat       = colorFormat;
     sgo.preferrHalfPrecision      = preferrHalfPrecision;
     sgo.compute                   = !useVulkan();
     sgo.vulkan                    = useVulkan();
@@ -1665,7 +1645,7 @@ std::string ShaderUnitTest::snnFlattenTestWithLayer(cv::Mat& inputMat, int width
     snn::ImageTextureArray outputTexs = createOutputImgTxt(outWidth, outHeight, outChannels);
 
     auto ic2 = snn::MixedInferenceCore::create(context, graph);
-    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}, {}, {}};
+    snn::MixedInferenceCore::RunParameters rp = {imgs, outputTexs, {}};
     ic2->run(rp);
 
     ret = layer->getName() + " pass[" + std::to_string(0) + "].dump";

@@ -39,27 +39,6 @@ struct InferenceEngine {
 
             auto operator!=(const Denoisers& that) const -> bool { return !operator==(that); }
         };
-        struct Clearance {
-            enum class Version { SPRINT3, SPRINT4, SPRINT5 };
-
-            Version version;
-            Device device;
-            bool temporalFiltering;
-            bool dumpOutputs;
-
-            bool scale = false;
-            float min  = 0.0f;
-            float max  = 255.0f;
-
-            Clearance(): version(Version::SPRINT5), device(Device::CPU), temporalFiltering(false) {}
-
-            Clearance(Version v, Device d, bool tmpF): version(v), device(d), temporalFiltering(tmpF) {}
-
-            auto operator==(const Clearance& that) const -> bool {
-                return that.version == version && that.device == device && that.temporalFiltering == temporalFiltering;
-            }
-            auto operator!=(const Clearance& that) const -> bool { return !operator==(that); }
-        };
 
         struct BasicCNN {
             Device device;
@@ -127,17 +106,24 @@ struct InferenceEngine {
         };
 
         std::optional<Denoisers> denoisers;
-        std::optional<BasicCNN> basicCNN;
         std::optional<Classifiers> classifiers;
         std::optional<Detections> detections;
         std::optional<StyleTransfer> styleTransferModels;
 
         Precision precision = Precision::FP32;
 
-        operator bool() const { return denoisers || basicCNN || classifiers || detections || styleTransferModels; }
+        enum ChangeStatus {
+            NO_CHANGE = 0,
+            CHANGE = 1,
+            CHANGE_PROCESSED = 2,
+        };
+
+        ChangeStatus changeStatus = NO_CHANGE;
+
+        operator bool() const { return denoisers || classifiers || detections || styleTransferModels; }
 
         auto operator==(const AlgorithmConfig& that) const -> bool {
-            return that.denoisers == denoisers && that.basicCNN == basicCNN && that.classifiers == classifiers && that.detections == detections &&
+            return that.denoisers == denoisers && that.classifiers == classifiers && that.detections == detections &&
                     that.styleTransferModels == styleTransferModels;
         }
         auto operator!=(const AlgorithmConfig& that) const -> bool { return !operator==(that); }

@@ -919,3 +919,15 @@ const std::string& layerInputFile, int target_size, int inputChannels, int outpu
 
     return layerOutput;
 }
+
+std::unique_ptr<snn::Conv2DSupport::WeightsTensor> ncnn2Conv2D(const ncnn::Mat& weight, uint32_t o, uint32_t i, uint32_t h, uint32_t w) {
+    std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights(new snn::Conv2DSupport::WeightsTensor({o, i, h, w}));
+    const uint32_t matSizeInBytes = w * h * sizeof(float);
+    
+    for (uint32_t filter = 0, p = 0; filter < o; ++filter) {
+        for (size_t filterPlane = 0; filterPlane < i; ++filterPlane, ++p) {
+            memcpy((*inputWeights)[filter][filterPlane].data(), (uchar *) weight.data + matSizeInBytes * p, matSizeInBytes);
+        }
+    }
+    return inputWeights;
+}

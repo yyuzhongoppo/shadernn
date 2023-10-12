@@ -67,8 +67,9 @@ public class MainViewVulkan extends SurfaceView implements Runnable {
                     onSurfaceCreated(surfaceHolder);
                 }
                 mainActivity.runOnUiThread(() -> mainActivity.UpdateFps());
-                AlgorithmConfig algorithmConfig = (mainActivity.mMenuCore != null) ? mainActivity.mMenuCore.getState() : new AlgorithmConfig();
+                AlgorithmConfig algorithmConfig = mainActivity.getAlgorithmConfig();
                 NativeLibrary.drawVulkan(algorithmConfig);
+                mainActivity.stopProgressBarIfNeeded();
 
                 if (algorithmConfig.isClassifierResnet18() || algorithmConfig.isClassifierMobilenetv2()) {
                     if (algorithmConfig.isClassifierResnet18() || algorithmConfig.isClassifierMobilenetv2()) {

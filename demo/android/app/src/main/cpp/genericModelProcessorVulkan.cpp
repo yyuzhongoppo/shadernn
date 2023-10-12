@@ -69,9 +69,10 @@ GenericModelProcessorVulkan::GenericModelProcessorVulkan(ModelProcessorParams& m
         inputImageResizeOp->updateParams({modelProcessorParams.modelDims.width, modelProcessorParams.modelDims.height, 1}, modelInputMeans, modelInputNorms);
     }
 
+    ColorFormat cf = options.preferrHalfPrecision ? snn::ColorFormat::RGBA16F : snn::ColorFormat::RGBA32F;
     if (resizeImage) {
         modelOutput->resetTexture({modelProcessorParams.modelDims.width, modelProcessorParams.modelDims.height, modelProcessorParams.modelDims.depth, 1},
-            options.desiredOutputFormat, "Model output");
+            cf, "Model output");
         outputImageResizeOp->init(device, true);
         std::array<float, 4> modelOutputMeans = {modelOutputMean, modelOutputMean, modelOutputMean, modelOutputMean};
         std::array<float, 4> modelOutputNorms = {modelOutputNorm, modelOutputNorm, modelOutputNorm, modelOutputNorm};
@@ -79,7 +80,7 @@ GenericModelProcessorVulkan::GenericModelProcessorVulkan(ModelProcessorParams& m
         outputImageResizeOp->setFinalDstLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
     else {
-        modelOutput->resetTexture({outputDims.width, outputDims.height, outputDims.depth, 1}, options.desiredOutputFormat, "Model output");
+        modelOutput->resetTexture({outputDims.width, outputDims.height, outputDims.depth, 1}, cf, "Model output");
     }
 }
 

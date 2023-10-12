@@ -16,13 +16,18 @@ package com.oppo.seattle.snndemo;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
+import android.graphics.drawable.Drawable;
 import android.hardware.camera2.CameraManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.ImageSpan;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -31,6 +36,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.webkit.MimeTypeMap;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -51,29 +57,21 @@ public class MainActivity extends AppCompatActivity {
     RecordingManager recordingManager;
     MenuCore mMenuCore;
 
+    ProgressDialog progress;
+
     private TextView tvFps;
     private FrameTimeAverager frameTime = new FrameTimeAverager();
     private long lastFpsTime = 0;
     private long frameCounter = 0;
 
+    private AlgorithmConfig mAC;
     private TextView classifierResult;
 
-    public MainActivity() {
+    public MainActivity()
+    {
         videoReader = new VideoReader(this);
+        mAC =  new AlgorithmConfig();
     }
-
-    // uncomment the following section to load AGA interceptors to enable AGA capture
-    // on unrooted phone.
-
-    /*static {
-        try  {
-            System.loadLibrary("AGA");
-            Log.i(TAG, "AGA interceptor loaded.");
-        }
-        catch (UnsatisfiedLinkError e) {
-            Log.e(TAG, "GA interceptor is not loaded: " + e.getMessage());
-        }
-    }//*/
 
     @SuppressLint("SourceLockedOrientationActivity")
     @Override
@@ -97,6 +95,9 @@ public class MainActivity extends AppCompatActivity {
 
         tvFps = findViewById(R.id.textViewFPS);
         classifierResult = findViewById(R.id.classifierOutput);
+
+        progress = new ProgressDialog(MainActivity.this);
+        progress.setCancelable(false); // disable dismiss by tapping outside of the dialog
 
         NativeLibrary.init(am, internalStoragePath, externalStorageDir);
     }
@@ -127,13 +128,24 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private CharSequence getModelRunItem() {
+        Drawable d = getResources().getDrawable(R.drawable.ic_start_model);
+        d.setBounds(0, 0, d.getIntrinsicWidth(), d.getIntrinsicHeight());
+        SpannableString ss = new SpannableString("    " + "Run model:");
+        ImageSpan imageSpan = new ImageSpan(d, ImageSpan.ALIGN_BOTTOM);
+        ss.setSpan(imageSpan, 0, 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return ss;
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         if (super.onCreateOptionsMenu(menu)) {
             Log.d(TAG, "onCreateOptionsMenu: menu created");
             getMenuInflater().inflate(R.menu.main_activity_menu, menu);
-            mMenuCore = new MenuCore(this, menu);
+            MenuItem itemModelRun = menu.add(Menu.NONE, R.id.modelRunId, 1, getModelRunItem());
+            itemModelRun.setEnabled(false);
             MenuCompat.setGroupDividerEnabled(menu, true);
+            mMenuCore = new MenuCore(this, menu, mAC);
             return true;
         }
         else {
@@ -147,28 +159,9 @@ public class MainActivity extends AppCompatActivity {
             // We don't have any settings yet
             return true;
         }
-        if (item.getItemId() == R.id.style_transfer_choices) {
-            return true;
-        }
-
-        return mMenuCore.onOptionsItemSelected(item);
-    }
-
-    public boolean keepMenuOpen(MenuItem item) {
-        item.setShowAsAction(MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW);
-        item.setActionView(new View(this));
-        item.setOnActionExpandListener(new MenuItem.OnActionExpandListener(){
-            @Override
-            public boolean onMenuItemActionExpand(MenuItem item){
-                return false;
-            }
-
-            @Override
-            public boolean onMenuItemActionCollapse(MenuItem item){
-                return false;
-            }
-        });
-        return false;
+        boolean ret = mMenuCore.onOptionsItemSelected(item);
+        startProgressBarIfNeeded();
+        return ret;
     }
 
     @Override
@@ -176,6 +169,10 @@ public class MainActivity extends AppCompatActivity {
         cameraPreview.stopCamera();
         NativeLibrary.destroy();
         super.onDestroy();
+    }
+
+    public AlgorithmConfig getAlgorithmConfig() {
+        return mAC;
     }
 
     void stopAllSources() {
@@ -266,7 +263,6 @@ public class MainActivity extends AppCompatActivity {
         // Start the Intent
         startActivityForResult(galleryIntent, RESULT_LOAD_VIDEO);
         Log.d(TAG, "Started activity for video picker");
-
     }
 
     @Override
@@ -320,59 +316,21 @@ public class MainActivity extends AppCompatActivity {
         final String text = String.format("Classifier output = " + algorithmConfig.getClassifierOutput());
         classifierResult.setText(text);
     }
-}
 
-// Copied as is from demo-app
-class ModelFromFile extends ModelSelection {
-    private String path;
-
-    ModelFromFile(String path) {
-        this.path = path;
-        String ext = MimeTypeMap.getFileExtensionFromUrl(path);
-        if (ext.length() > 0) {
-            ext = "." + ext;
-        }
-        name = new File(Objects.requireNonNull(path)).getName();
-        if (name.toLowerCase().endsWith("3x" + ext)) {
-            scaleFactor = 3;
-        } else {
-            scaleFactor = 2;
+    public void startProgressBarIfNeeded() {
+        if (mAC.isChanged()) {
+            progress.setTitle("Loading model");
+            progress.show();
         }
     }
 
-    @Override
-    public String getFullName() {
-        return path;
-    }
-}
-
-// Copied as is from demo-app
-abstract class ModelSelection implements Comparable<ModelSelection> {
-    @SuppressWarnings("WeakerAccess")
-    protected int scaleFactor = 2;
-    String name;
-
-    int getScaleFactor() {
-        return scaleFactor;
-    }
-
-    @Override
-    @NonNull
-    public String toString() {
-        return getName();
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getFullName() {
-        return getName();
-    }
-
-    @Override
-    public int compareTo(ModelSelection o) {
-        return this.toString().compareTo(o.toString());
+    public void stopProgressBarIfNeeded() {
+        if (mAC.isChangeProcessed()) {
+            runOnUiThread(() -> {
+                progress.dismiss();
+                mAC.setChangeProcessed();
+            });
+        }
     }
 }
 

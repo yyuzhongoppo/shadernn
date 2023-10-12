@@ -103,19 +103,14 @@ public class MainViewGL extends GLSurfaceView {
 class MainRenderer implements GLSurfaceView.Renderer {
     private static String TAG = "SNN";
     private MainActivity mainActivity;
-    private AssetManager am;
-    boolean animated = true;
 
     MainRenderer(Context context)
     {
         mainActivity = (MainActivity)context;
-        am = context.getAssets();
     }
 
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
         Log.d(TAG, "renderer surface created");
-        // Moved to MainActivity.onCreate()
-        //NativeLibrary.init(am, mainActivity.getFilesDir().getAbsolutePath(), mainActivity.getExternalFilesDir(null).getAbsolutePath());
         NativeLibrary.initGL();
 
         mainActivity.runOnUiThread(new Runnable() {
@@ -128,8 +123,9 @@ class MainRenderer implements GLSurfaceView.Renderer {
 
     public void onDrawFrame(GL10 unused) {
         mainActivity.runOnUiThread(() -> mainActivity.UpdateFps());
-        AlgorithmConfig algorithmConfig = (mainActivity.mMenuCore != null) ? mainActivity.mMenuCore.getState() : new AlgorithmConfig();
+        AlgorithmConfig algorithmConfig = mainActivity.getAlgorithmConfig();
         NativeLibrary.drawGL(algorithmConfig);
+        mainActivity.stopProgressBarIfNeeded();
 
         if (algorithmConfig.isClassifierResnet18() || algorithmConfig.isClassifierMobilenetv2()) {
             mainActivity.runOnUiThread(()->mainActivity.UpdateClassifierResult(algorithmConfig));

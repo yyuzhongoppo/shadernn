@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include <array>
+#include <thread>
 
 // Global namespace is polluted somewhere
 #ifdef Success
@@ -73,61 +74,9 @@ std::string printMRTMode(snn::MRTMode mrtMode) {
     }
 }
 
-int main(int argc, char ** argv) {
-    bool                    dumpOutputs  = false;
-    bool                    useCompute   = false;
-    bool                    use1chMrt    = false;
-    bool                    use2chMrt    = false;
-    bool                    useConstants = false;
-    bool                    useHalfFP    = false;
-    bool                    useVulkan    = false;
-    bool                    useFinetuned = false;
-    snn::MRTMode            mrtMode      = snn::MRTMode::SINGLE_PLANE;
-    snn::WeightAccessMethod weightMode   = snn::WeightAccessMethod::TEXTURES;
-    uint32_t                innerLoops   = 1; // For testing performance
-    uint32_t                outerLoops   = 1; // For testing functionalitu on different input images
-
-    const std::vector<std::string> MODELS = {"resnet18", "yolov3tiny", "unet", "mobilenetv2", "spatialdenoise", "aidenoise", "styletransfer", "espcn2x"};
-    std::vector<std::string>       modelsToRun;
-    std::vector<int>               modelIdx;
-
-    CLI::App app;
-    app.add_flag("--use_vulkan", useVulkan, "Use Vulkan");
-    app.add_flag("--use_compute", useCompute, "Use compute shader (OpenGL only)");
-    app.add_flag("--use_1ch_mrt", use1chMrt, "Use single plane MRT (OpenGL only)");
-    app.add_flag("--use_2ch_mrt", use2chMrt, "Use double plane MRT (OpenGL only)");
-    app.add_flag("--use_constants", useConstants, "Store weight as constants (OpenGL only)");
-    app.add_flag("--use_half", useHalfFP, "Use half-precision floating point values (fp16)");
-    app.add_flag("--use_finetuned", useFinetuned, "Use fine-tuned models");
-    app.add_flag("--dump_outputs", dumpOutputs, "Dump outputs");
-    app.add_option("--inner_loops", innerLoops, "Number of inner loops (after model loading)");
-    app.add_option("--outer_loops", outerLoops, "Number of outer loops (before model loading)");
-    app.add_option("model", modelsToRun,
-                   "Model(s) to run: {resnet18 | yolov3tiny | unet | mobilenetv2 | spatialdenoise | aidenoise | styletransfer | espcn2x}");
-    CLI11_PARSE(app, argc, argv);
-    CHECK_PLATFORM_SUPPORT(useVulkan)
-
-    for (size_t i = 0; i < modelsToRun.size(); ++i) {
-        auto iter = std::find(MODELS.begin(), MODELS.end(), modelsToRun[i]);
-        if (iter == modelsToRun.end()) { SNN_RIP("Incorrect model name: %s", modelsToRun[i].c_str()); }
-        int idx = iter - MODELS.begin();
-        modelIdx.push_back(idx);
-    }
-    if (use1chMrt) {
-        mrtMode = snn::MRTMode::SINGLE_PLANE;
-    } else if (use2chMrt) {
-        mrtMode = snn::MRTMode::DOUBLE_PLANE;
-    }
-    if (useConstants) { weightMode = snn::WeightAccessMethod::CONSTANTS; }
-    innerLoops = std::max(1U, innerLoops);
-    outerLoops = std::max(1U, outerLoops);
-    for (int model : modelIdx) {
-        SNN_LOGI("\n\n**************************************************\n Model: %s %s %s %s %s %s %s \n**************************************************",
-                 MODELS[model].c_str(), (useFinetuned ? "finetuned" : "non-finetuned"), (useHalfFP ? ", fp16" : ", fp32"),
-                 (useVulkan ? ", Vulkan" : ", OpenGL"), (useVulkan ? "" : (useCompute ? ", Compute shader" : ", Fragment shader")),
-                 (useVulkan ? "" : (use2chMrt ? ", Double plane MRT" : ", Single plane MRT")),
-                 (useVulkan ? "" : (useConstants ? ", Weights in constants" : "")));
-        switch (model) {
+void runTest(int model, bool dumpOutputs, bool useCompute, snn::MRTMode mrtMode, snn::WeightAccessMethod weightMode,
+    bool useHalfFP, bool useVulkan, bool useFinetuned, uint32_t innerLoops, uint32_t outerLoops) {
+    switch (model) {
         case 0: {
             runResnet18(dumpOutputs, useCompute, mrtMode, weightMode, useHalfFP, useVulkan, useFinetuned, innerLoops, outerLoops);
             break;
@@ -163,6 +112,76 @@ int main(int argc, char ** argv) {
         default:
             SNN_ASSERT(false);
             break;
+    }
+}
+
+
+int main(int argc, char ** argv) {
+    bool                    dumpOutputs  = false;
+    bool                    useCompute   = false;
+    bool                    use1chMrt    = false;
+    bool                    use2chMrt    = false;
+    bool                    useConstants = false;
+    bool                    useHalfFP    = false;
+    bool                    useVulkan    = false;
+    bool                    useFinetuned = false;
+    snn::MRTMode            mrtMode      = snn::MRTMode::SINGLE_PLANE;
+    snn::WeightAccessMethod weightMode   = snn::WeightAccessMethod::TEXTURES;
+    uint32_t                innerLoops   = 1; // For testing performance
+    uint32_t                outerLoops   = 1; // For testing functionalitu on different input images
+
+    const std::vector<std::string> MODELS = {"resnet18", "yolov3tiny", "unet", "mobilenetv2", "spatialdenoise", "aidenoise", "styletransfer", "espcn2x"};
+    std::vector<std::string>       modelsToRun;
+    std::vector<int>               modelIdx;
+    uint32_t numThreads = 0;
+
+    CLI::App app;
+    app.add_flag("--use_vulkan", useVulkan, "Use Vulkan");
+    app.add_flag("--use_compute", useCompute, "Use compute shader (OpenGL only)");
+    app.add_flag("--use_1ch_mrt", use1chMrt, "Use single plane MRT (OpenGL only)");
+    app.add_flag("--use_2ch_mrt", use2chMrt, "Use double plane MRT (OpenGL only)");
+    app.add_flag("--use_constants", useConstants, "Store weight as constants (OpenGL only)");
+    app.add_flag("--use_half", useHalfFP, "Use half-precision floating point values (fp16)");
+    app.add_flag("--use_finetuned", useFinetuned, "Use fine-tuned models");
+    app.add_flag("--dump_outputs", dumpOutputs, "Dump outputs");
+    app.add_option("--inner_loops", innerLoops, "Number of inner loops (after model loading)");
+    app.add_option("--outer_loops", outerLoops, "Number of outer loops (before model loading)");
+    app.add_option("--num_threads", numThreads, "Number of threads to run the same model in parallel. 0 = single threaded test.");
+    app.add_option("model", modelsToRun,
+                   "Model(s) to run: {resnet18 | yolov3tiny | unet | mobilenetv2 | spatialdenoise | aidenoise | styletransfer | espcn2x}");
+    CLI11_PARSE(app, argc, argv);
+    CHECK_PLATFORM_SUPPORT(useVulkan)
+
+    for (size_t i = 0; i < modelsToRun.size(); ++i) {
+        auto iter = std::find(MODELS.begin(), MODELS.end(), modelsToRun[i]);
+        if (iter == modelsToRun.end()) { SNN_RIP("Incorrect model name: %s", modelsToRun[i].c_str()); }
+        int idx = iter - MODELS.begin();
+        modelIdx.push_back(idx);
+    }
+    if (use1chMrt) {
+        mrtMode = snn::MRTMode::SINGLE_PLANE;
+    } else if (use2chMrt) {
+        mrtMode = snn::MRTMode::DOUBLE_PLANE;
+    }
+    if (useConstants) { weightMode = snn::WeightAccessMethod::CONSTANTS; }
+    innerLoops = std::max(1U, innerLoops);
+    outerLoops = std::max(1U, outerLoops);
+    for (int model : modelIdx) {
+        SNN_LOGI("\n\n**************************************************\n Model: %s %s %s %s %s %s %s \n**************************************************",
+                 MODELS[model].c_str(), (useFinetuned ? "finetuned" : "non-finetuned"), (useHalfFP ? ", fp16" : ", fp32"),
+                 (useVulkan ? ", Vulkan" : ", OpenGL"), (useVulkan ? "" : (useCompute ? ", Compute shader" : ", Fragment shader")),
+                 (useVulkan ? "" : (use2chMrt ? ", Double plane MRT" : ", Single plane MRT")),
+                 (useVulkan ? "" : (useConstants ? ", Weights in constants" : "")));
+        if (numThreads == 0) {
+            runTest(model, dumpOutputs, useCompute, mrtMode, weightMode, useHalfFP, useVulkan, useFinetuned, innerLoops, outerLoops);
+        } else {
+            std::vector<std::thread> threads;
+            for (uint32_t threadIdx = 0; threadIdx < numThreads; ++threadIdx) {
+                threads.push_back(std::thread(runTest, model, dumpOutputs, useCompute, mrtMode, weightMode, useHalfFP, useVulkan, useFinetuned, innerLoops, outerLoops));
+            }
+            for (uint32_t threadIdx = 0; threadIdx < numThreads; ++threadIdx) {
+                threads[threadIdx].join();
+            }
         }
     }
 

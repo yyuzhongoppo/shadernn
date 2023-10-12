@@ -20,7 +20,7 @@ public class AlgorithmConfig {
         NONE, AIDENOISER, SPATIALDENOISER
     }
 
-    public enum DenoiserShader {
+    public enum ShaderType {
         COMPUTESHADER, FRAGMENTSHADER
     }
 
@@ -28,16 +28,8 @@ public class AlgorithmConfig {
         NONE, RESNET18, MOBILENETV2
     }
 
-    public enum ClassifierShader {
-        COMPUTESHADER, FRAGMENTSHADER
-    }
-
     public enum DetectionAlgorithm {
         NONE, YOLOV3
-    }
-
-    public enum DetectionShader {
-        COMPUTESHADER, FRAGMENTSHADER
     }
 
     public enum Precision {
@@ -52,15 +44,19 @@ public class AlgorithmConfig {
     private String[] resnet18Classes = {"None", "airplane", "automobile", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck"};
     private String[] mobilenetClasses = {"None", "Class 1", "Class 2"};
 
-    private DenoiserShader denoiserShader;
+    private ShaderType denoiserShader;
     private DenoiserAlgorithm denoiserAlgorithm;
     private ClassifierAlgorithm classifierAlgorithm;
-    private ClassifierShader classifierShader;
+    private ShaderType classifierShader;
     private DetectionAlgorithm detectionAlgorithm;
-    private DetectionShader detectionShader;
+    private ShaderType detectionShader;
     private Precision precision;
-    private boolean temporalFilter;
     private StyleTransfer styleTransferAlgorithm;
+
+    private static final int NO_CHANGE = 0;
+    private static final int CHANGE = 1;
+    private static final int CHANGE_PROCESSED = 2;
+    private int changeStatus = NO_CHANGE;
 
     AlgorithmConfig() {
         init();
@@ -68,14 +64,13 @@ public class AlgorithmConfig {
 
     private void init() {
         denoiserAlgorithm = DenoiserAlgorithm.NONE;
-        denoiserShader = DenoiserShader.FRAGMENTSHADER;
+        denoiserShader = ShaderType.FRAGMENTSHADER;
         classifierAlgorithm = ClassifierAlgorithm.NONE;
-        classifierShader = ClassifierShader.FRAGMENTSHADER;
+        classifierShader = ShaderType.FRAGMENTSHADER;
         detectionAlgorithm = DetectionAlgorithm.NONE;
-        detectionShader = DetectionShader.FRAGMENTSHADER;
+        detectionShader = ShaderType.FRAGMENTSHADER;
         precision = Precision.FP32;
         styleTransferAlgorithm = StyleTransfer.NONE;
-        temporalFilter = false;
     }
 
     public String getClassifierOutput() {
@@ -92,24 +87,26 @@ public class AlgorithmConfig {
     }
 
     void setDenoiserAlgorithm(DenoiserAlgorithm denoiserAlgorithm) {
+        if (this.denoiserAlgorithm != denoiserAlgorithm) {
+            changeStatus = CHANGE;
+        }
         this.denoiserAlgorithm = denoiserAlgorithm;
     }
 
-    public void setDenoiser(DenoiserShader denoiserShader) {
+    public void setDenoiserShaderType(ShaderType denoiserShader) {
         this.denoiserShader = denoiserShader;
     }
 
     public boolean isDenoiseSPATIALDENOISER() {return  denoiserAlgorithm == DenoiserAlgorithm.SPATIALDENOISER; }
 
     public boolean isDenoiseComputeShader() {
-        return denoiserShader == DenoiserShader.COMPUTESHADER;
-    }
-
-    void setTemporalFilter(boolean temporalFilter) {
-        this.temporalFilter = temporalFilter;
+        return denoiserShader == ShaderType.COMPUTESHADER;
     }
 
     void setStyleTransferAlgorithm(StyleTransfer styleTransferAlgorithm) {
+        if (this.styleTransferAlgorithm != styleTransferAlgorithm) {
+            changeStatus = CHANGE;
+        }
         this.styleTransferAlgorithm = styleTransferAlgorithm;
     }
     public boolean isStyleTransferNONE() { return styleTransferAlgorithm == StyleTransfer.NONE; }
@@ -125,17 +122,18 @@ public class AlgorithmConfig {
     public boolean isStyleTransferUDNIE() { return  styleTransferAlgorithm == StyleTransfer.UDNIE; }
 
     public void setClassifierAlgorithm(ClassifierAlgorithm classifierAlgorithm) {
+        if (this.classifierAlgorithm != classifierAlgorithm) {
+            changeStatus = CHANGE;
+        }
         this.classifierAlgorithm = classifierAlgorithm;
         this.classifierIndex = 0;
     }
 
-    public void setClassifier(ClassifierShader classifierShader) {
+    public void setClassifierShaderType(ShaderType classifierShader) {
+        if (this.classifierShader != classifierShader) {
+            changeStatus = CHANGE;
+        }
         this.classifierShader = classifierShader;
-        this.classifierIndex = 0;
-    }
-
-    public boolean isClassifierNONE() {
-        return this.classifierAlgorithm == ClassifierAlgorithm.NONE;
     }
 
     public boolean isClassifierResnet18() {
@@ -147,18 +145,27 @@ public class AlgorithmConfig {
     }
 
     public boolean isClassifierComputeShader() {
-        return this.classifierShader == ClassifierShader.COMPUTESHADER;
+        return this.classifierShader == ShaderType.COMPUTESHADER;
     }
 
     public void setDetectionAlgorithm(DetectionAlgorithm detectionAlgorithm) {
+        if (this.detectionAlgorithm != detectionAlgorithm) {
+            changeStatus = CHANGE;
+        }
         this.detectionAlgorithm = detectionAlgorithm;
     }
 
-    public void setDetection(DetectionShader detectionShader) {
+    public void setDetectionShaderType(ShaderType detectionShader) {
+        if (this.detectionShader != detectionShader) {
+            changeStatus = CHANGE;
+        }
         this.detectionShader = detectionShader;
     }
 
     public void setPrecision(Precision precision) {
+        if (this.precision != precision) {
+            changeStatus = CHANGE;
+        }
         this.precision = precision;
     }
 
@@ -167,7 +174,7 @@ public class AlgorithmConfig {
     }
 
     public boolean isDetectionComputeShader() {
-        return this.detectionShader == DetectionShader.COMPUTESHADER;
+        return this.detectionShader == ShaderType.COMPUTESHADER;
     }
 
     public Precision getPrecision() {
@@ -176,5 +183,22 @@ public class AlgorithmConfig {
 
     public boolean isFP16() {
         return this.precision == Precision.FP16;
+    }
+
+    public boolean isChanged() {
+        return this.changeStatus == CHANGE;
+    }
+
+    public void setChangeProcessed() {
+        if (this.changeStatus == CHANGE) {
+            this.changeStatus = CHANGE_PROCESSED;
+        }
+    }
+    public boolean isChangeProcessed() {
+        return this.changeStatus == CHANGE_PROCESSED;
+    }
+
+    public void resetChange() {
+        this.changeStatus = NO_CHANGE;
     }
 }

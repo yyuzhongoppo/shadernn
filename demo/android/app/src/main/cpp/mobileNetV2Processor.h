@@ -19,7 +19,7 @@
 
 #include <string>
 
-static constexpr const char* MOBILENETV2_MODEL_NAME = "MobileNetV2/mobilenetV2.json";
+static constexpr const char* MOBILENETV2_MODEL_NAME = "MobileNetV2/mobilenetv2_keras_layers.json";
 
 namespace snn {
 

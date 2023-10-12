@@ -27,7 +27,7 @@ public:
         : ResNet18Processor(format, precision, compute, dumpOutputs)
     {
         genericClassifierProcessorGL.reset(
-            new GenericClassifierProcessorGL(*this, 0.5f /*means*/, 2.0f /*norms*/, WeightAccessMethod::CONSTANTS)
+            new GenericClassifierProcessorGL(*this, 0.5f /*means*/, 2.0f /*norms*/, DEFAULT_WEIGHT_ASSESS_METHOD)
         );
     }
 

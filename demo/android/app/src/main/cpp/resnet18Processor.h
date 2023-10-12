@@ -19,7 +19,7 @@
 
 #include <string>
 
-static constexpr const char* RESNET18_MODEL_NAME = "Resnet18/resnet18_cifar10.json";
+static constexpr const char* RESNET18_MODEL_NAME = "Resnet18/resnet18_cifar10_layers.json";
 
 namespace snn {
 

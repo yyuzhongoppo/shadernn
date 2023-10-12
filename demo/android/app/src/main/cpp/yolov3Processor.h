@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-static constexpr const char* YOLOV3_MODEL_NAME = "Yolov3-tiny/yolov3-tiny_finetuned.json";
+static constexpr const char* YOLOV3_MODEL_NAME = "Yolov3-tiny/yolov3-tiny_layers.json";
 
 namespace snn {
 

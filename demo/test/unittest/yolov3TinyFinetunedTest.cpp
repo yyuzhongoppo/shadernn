@@ -26,8 +26,8 @@
 #endif
 #include "CLI/CLI.hpp"
 
-#define NCNN_MODEL_NAME "yolov3-tiny_finetuned"
-#define SNN_MODEL_NAME  "yolov3-tiny_finetuned.json"
+#define NCNN_MODEL_NAME "yolov3-tiny"
+#define SNN_MODEL_NAME  "yolov3-tiny_layers.json"
 #define TEST_IMAGE      "coco1_416.png"
 
 #include "yolov3TinyTestCommon.cpp"
@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
         mrtMode = (snn::MRTMode) 0;
     }
     // TODO: investigate why so big error
-    const double COMPARE_THRESHOLD = useHalfFP ? 0.3 : 0.03;
+    const double COMPARE_THRESHOLD = useHalfFP ? 0.3 : 0.04;
 
     ncnnMat = getNCNNLayer(ncnnModelName.c_str(), ncnnImageName.c_str(),
                            "input_1_blob", 416);

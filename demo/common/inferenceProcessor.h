@@ -80,7 +80,6 @@ private:
     GpuContext* _context;
     std::shared_ptr<MixedInferenceCore> _ic2;
     std::string _modelFileName;
-    std::vector<std::pair<std::string, std::vector<uint32_t>>> _inputList;
     ImageTextureArray _inputTexs;
     ImageTextureArray _outputTexs;
     bool dumpOutputs, halfPrecision;

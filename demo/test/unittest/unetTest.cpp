@@ -24,8 +24,8 @@
 #endif
 #include "CLI/CLI.hpp"
 
-#define NCNN_MODEL_NAME   "unet_dummy"
-#define SNN_MODEL_NAME    "unet_layers.json"
+#define NCNN_MODEL_NAME   "unet_pretrained"
+#define SNN_MODEL_NAME    "unet_pretrained_layers.json"
 #define TEST_IMAGE        "test_image_unet_gray.png"
 
 int main(int argc, char** argv) {

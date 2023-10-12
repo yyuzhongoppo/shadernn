@@ -12,6 +12,7 @@ Ops tests are the following:
 | Test                   | Binary name            |
 | ---------------------- | ---------------------- |
 | Activation             | activationTest         |
+| Average pooling 2D     | avgPool2dCatTest       |
 | Batch normalization    | batchNormTest          |
 | Binary op              | binaryOpTest           |
 | Concatenation          | concatTest             |

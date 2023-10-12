@@ -25,51 +25,118 @@ class MenuCore {
     private Menu mMenu;
     private AlgorithmConfig mAC;
 
-    MenuCore(Context context, Menu menu) {
+    MenuCore(Context context, Menu menu, AlgorithmConfig ac) {
         mContext = context;
         mMenu = menu;
-        mAC = new AlgorithmConfig();
+        mAC = ac;
     }
 
-    boolean onOptionsItemSelected(MenuItem item) {
-        item.setChecked(!item.isChecked());
+    private boolean isOptionsItemModelRun(MenuItem item) {
         if (item.getItemId() == R.id.fp16 || item.getItemId() == R.id.fp32
-            || item.getItemId() == R.id.detection_compute_shader || item.getItemId() == R.id.detection_fragment_shader) {
-            return keepMenuOpen(item);
+                || item.getItemId() == R.id.compute_shader || item.getItemId() == R.id.fragment_shader) {
+            return false;
         }
-        setState();
         return true;
     }
 
+    boolean onOptionsItemSelected(MenuItem item) {
+        item.setChecked(true);
+        // Expand submodels
+        if (mMenu.findItem(R.id.classifier).isChecked()) {
+            mMenu.setGroupVisible(R.id.classifier_choices, true);
+        } else {
+            mMenu.setGroupVisible(R.id.classifier_choices, false);
+        }
+        if (mMenu.findItem(R.id.style_transfer).isChecked()) {
+            mMenu.setGroupVisible(R.id.style_transfer_choices, true);
+        } else {
+            mMenu.setGroupVisible(R.id.style_transfer_choices, false);
+        }
+        boolean concreteModelSelected = false;
+        if (mMenu.findItem(R.id.spatialdenoise).isChecked() ||
+                mMenu.findItem(R.id.classifier).isChecked() && (
+                        mMenu.findItem(R.id.resnet18_classifier).isChecked() ||
+                                mMenu.findItem(R.id.mobilenetv2_classifier).isChecked()
+                ) ||
+                mMenu.findItem(R.id.yolov3_detection).isChecked() ||
+                mMenu.findItem(R.id.style_transfer).isChecked() && (
+                        mMenu.findItem(R.id.style_candy).isChecked() ||
+                                mMenu.findItem(R.id.style_mosaic).isChecked() ||
+                                mMenu.findItem(R.id.style_pointilism).isChecked() ||
+                                mMenu.findItem(R.id.style_rain_princess).isChecked() ||
+                                mMenu.findItem(R.id.style_udnie).isChecked()
+                )
+            ) {
+            concreteModelSelected = true;
+        }
+
+        // If shader choice is available (OpenGL) ?
+        if (mMenu.findItem(R.id.compute_shader).isVisible() && mMenu.findItem(R.id.fragment_shader).isVisible()) {
+            // Disable fragment shader choice for some models, because compiling shaders is too slow
+            if (mMenu.findItem(R.id.classifier).isChecked() && mMenu.findItem(R.id.mobilenetv2_classifier).isChecked()) {
+                mMenu.findItem(R.id.fragment_shader).setEnabled(false);
+                mMenu.findItem(R.id.compute_shader).setChecked(true);
+            } else {
+                mMenu.findItem(R.id.fragment_shader).setEnabled(true);
+            }
+            // Set up default shader type
+            if (concreteModelSelected) {
+                if (!mMenu.findItem(R.id.compute_shader).isChecked() && !mMenu.findItem(R.id.fragment_shader).isChecked()) {
+                    if (mMenu.findItem(R.id.spatialdenoise).isChecked()) {
+                        // Fragment shader is default for spatial denoise
+                        mMenu.findItem(R.id.fragment_shader).setChecked(true);
+                    } else {
+                        // Compute shader is default for all other models
+                        mMenu.findItem(R.id.compute_shader).setChecked(true);
+                    }
+                }
+            }
+        }
+
+        if (concreteModelSelected) {
+            mMenu.findItem(R.id.modelRunId).setEnabled(true);
+        } else {
+            mMenu.findItem(R.id.modelRunId).setEnabled(false);
+        }
+        if (item.getItemId() == R.id.modelRunId) {
+            // Set state, close menu, run model
+            setState();
+            return true;
+        } else {
+            keepMenuOpen(item);
+            return false;
+        }
+    }
+
     private void setState() {
-        boolean computeShader = mMenu.findItem( R.id.detection_compute_shader).isChecked();
+        boolean computeShader = mMenu.findItem(R.id.compute_shader).isChecked();
         if (mMenu.findItem(R.id.spatialdenoise).isChecked()) {
             mAC.setDenoiserAlgorithm(AlgorithmConfig.DenoiserAlgorithm.SPATIALDENOISER);
             if (computeShader) {
-                mAC.setDenoiser(AlgorithmConfig.DenoiserShader.COMPUTESHADER);
+                mAC.setDenoiserShaderType(AlgorithmConfig.ShaderType.COMPUTESHADER);
             } else {
-                mAC.setDenoiser(AlgorithmConfig.DenoiserShader.FRAGMENTSHADER);
+                mAC.setDenoiserShaderType(AlgorithmConfig.ShaderType.FRAGMENTSHADER);
             }
         } else if (mMenu.findItem(R.id.resnet18_classifier).isChecked()) {
             mAC.setClassifierAlgorithm(AlgorithmConfig.ClassifierAlgorithm.RESNET18);
             if (computeShader) {
-                mAC.setClassifier(AlgorithmConfig.ClassifierShader.COMPUTESHADER);
+                mAC.setClassifierShaderType(AlgorithmConfig.ShaderType.COMPUTESHADER);
             } else {
-                mAC.setClassifier(AlgorithmConfig.ClassifierShader.FRAGMENTSHADER);
+                mAC.setClassifierShaderType(AlgorithmConfig.ShaderType.FRAGMENTSHADER);
             }
         } else if (mMenu.findItem(R.id.mobilenetv2_classifier).isChecked()) {
             mAC.setClassifierAlgorithm(AlgorithmConfig.ClassifierAlgorithm.MOBILENETV2);
             if (computeShader) {
-                mAC.setClassifier(AlgorithmConfig.ClassifierShader.COMPUTESHADER);
+                mAC.setClassifierShaderType(AlgorithmConfig.ShaderType.COMPUTESHADER);
             } else {
-                mAC.setClassifier(AlgorithmConfig.ClassifierShader.FRAGMENTSHADER);
+                mAC.setClassifierShaderType(AlgorithmConfig.ShaderType.FRAGMENTSHADER);
             }
         } else if (mMenu.findItem(R.id.yolov3_detection).isChecked()) {
             mAC.setDetectionAlgorithm(AlgorithmConfig.DetectionAlgorithm.YOLOV3);
             if (computeShader) {
-                mAC.setDetection(AlgorithmConfig.DetectionShader.COMPUTESHADER);
+                mAC.setDetectionShaderType(AlgorithmConfig.ShaderType.COMPUTESHADER);
             } else {
-                mAC.setDetection(AlgorithmConfig.DetectionShader.FRAGMENTSHADER);
+                mAC.setDetectionShaderType(AlgorithmConfig.ShaderType.FRAGMENTSHADER);
             }
         } else if (mMenu.findItem(R.id.style_candy).isChecked()) {
             mAC.setStyleTransferAlgorithm(AlgorithmConfig.StyleTransfer.CANDY);
@@ -82,18 +149,14 @@ class MenuCore {
         } else if (mMenu.findItem(R.id.style_udnie).isChecked()) {
             mAC.setStyleTransferAlgorithm(AlgorithmConfig.StyleTransfer.UDNIE);
         }
-        if (mMenu.findItem( R.id.fp32).isChecked()) {
+        if (mMenu.findItem(R.id.fp32).isChecked()) {
             mAC.setPrecision(AlgorithmConfig.Precision.FP32);
         } else {
             mAC.setPrecision(AlgorithmConfig.Precision.FP16);
         }
     }
 
-    public AlgorithmConfig getState() {
-        return mAC;
-    }
-
-    private boolean keepMenuOpen(MenuItem item) {
+    private void keepMenuOpen(MenuItem item) {
         item.setShowAsAction(MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW);
         item.setActionView(new View(mContext));
         item.setOnActionExpandListener(new MenuItem.OnActionExpandListener(){
@@ -107,6 +170,5 @@ class MenuCore {
                 return false;
             }
         });
-        return false;
     }
 }

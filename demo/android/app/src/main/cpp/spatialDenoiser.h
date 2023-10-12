@@ -20,7 +20,7 @@
 #include <string>
 #include <memory>
 
-static constexpr const char* SPATIAL_DENOISE_MODEL_NAME = "SpatialDenoise/spatialDenoise.json";
+static constexpr const char* SPATIAL_DENOISE_MODEL_NAME = "SpatialDenoise/spatialDenoise_layers.json";
 
 namespace snn {
 

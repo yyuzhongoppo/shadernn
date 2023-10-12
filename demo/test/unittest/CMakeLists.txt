@@ -192,5 +192,7 @@ snn_add_test(unetFinetuned Test)
 snn_add_test(mobilenetv2 Test)
 snn_add_test(mobilenetv2Finetuned Test)
 snn_add_test(styleTransfer Test)
+# Other unit tests
+snn_add_test(mdArray Test)
 # Frame extrapolation
 snn_add_test(qcFrameExtrapolation Test)

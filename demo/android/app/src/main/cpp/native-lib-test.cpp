@@ -240,7 +240,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_resne
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runResnet18(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runResnet18(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -248,7 +248,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_resne
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runResnet18(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runResnet18(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -256,7 +256,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_resne
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runResnet18(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runResnet18(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -264,7 +264,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_resne
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runResnet18(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runResnet18(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -272,7 +272,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_resne
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runResnet18(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runResnet18(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -280,7 +280,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_resne
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runResnet18(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runResnet18(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -288,7 +288,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_resne
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runResnet18(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, true, useFineTuned, innerLoops);
+    runResnet18(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, true, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -296,7 +296,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_resne
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runResnet18(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, true, useFineTuned, innerLoops);
+    runResnet18(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, true, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -304,7 +304,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_yolov
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runYolov3Tiny(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runYolov3Tiny(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -312,7 +312,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_yolov
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runYolov3Tiny(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runYolov3Tiny(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -320,7 +320,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_yolov
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runYolov3Tiny(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runYolov3Tiny(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -328,7 +328,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_yolov
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runYolov3Tiny(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runYolov3Tiny(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -336,7 +336,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_yolov
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runYolov3Tiny(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runYolov3Tiny(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -344,7 +344,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_yolov
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runYolov3Tiny(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runYolov3Tiny(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -352,7 +352,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_yolov
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runYolov3Tiny(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, true, useFineTuned, innerLoops);
+    runYolov3Tiny(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, true, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -360,7 +360,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_yolov
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runYolov3Tiny(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, true, useFineTuned, innerLoops);
+    runYolov3Tiny(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, true, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -368,7 +368,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_spati
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runSpatialDenoiser(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runSpatialDenoiser(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -376,7 +376,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_spati
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runSpatialDenoiser(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runSpatialDenoiser(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -384,7 +384,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_spati
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runSpatialDenoiser(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runSpatialDenoiser(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -392,7 +392,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_spati
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runSpatialDenoiser(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runSpatialDenoiser(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -400,7 +400,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_spati
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runSpatialDenoiser(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runSpatialDenoiser(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -408,7 +408,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_spati
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runSpatialDenoiser(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runSpatialDenoiser(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -416,7 +416,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_spati
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runSpatialDenoiser(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, true, useFineTuned, innerLoops);
+    runSpatialDenoiser(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, true, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -424,7 +424,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_spati
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runSpatialDenoiser(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, true, useFineTuned, innerLoops);
+    runSpatialDenoiser(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, true, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -496,7 +496,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_unetF
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runUNet(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runUNet(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -504,7 +504,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_unetF
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runUNet(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runUNet(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -512,7 +512,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_unetF
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runUNet(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runUNet(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -520,7 +520,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_unetF
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runUNet(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runUNet(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -528,7 +528,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_unetC
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runUNet(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runUNet(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -536,7 +536,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_unetC
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runUNet(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runUNet(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -544,7 +544,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_unetV
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runUNet(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, true, useFineTuned, innerLoops);
+    runUNet(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, true, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -552,7 +552,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_unetV
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runUNet(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, true, useFineTuned, innerLoops);
+    runUNet(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, true, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -560,7 +560,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_mobil
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runMobilenetV2(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runMobilenetV2(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -568,7 +568,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_mobil
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runMobilenetV2(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runMobilenetV2(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -576,7 +576,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_mobil
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runMobilenetV2(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runMobilenetV2(dumpResults, false, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -584,7 +584,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_mobil
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runMobilenetV2(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runMobilenetV2(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -592,7 +592,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_mobil
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runMobilenetV2(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runMobilenetV2(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -600,7 +600,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_mobil
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runMobilenetV2(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runMobilenetV2(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -608,7 +608,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_mobil
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runMobilenetV2(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, true, useFineTuned, innerLoops);
+    runMobilenetV2(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, true, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -616,7 +616,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_mobil
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runMobilenetV2(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, true, useFineTuned, innerLoops);
+    runMobilenetV2(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, true, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -624,7 +624,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_style
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runStyleTransfer(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, false, useFineTuned, innerLoops);
+    runStyleTransfer(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -632,7 +632,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_style
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runStyleTransfer(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, false, useFineTuned, innerLoops);
+    runStyleTransfer(dumpResults, true, snn::MRTMode::SINGLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, false, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -640,7 +640,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_style
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runStyleTransfer(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, false, true, useFineTuned, innerLoops);
+    runStyleTransfer(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, false, true, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -648,7 +648,7 @@ extern "C" JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_style
     // remember the pointer to the asset manager
     g_assetManager = AAssetManager_fromJava(env, java_am);
     SNN_CHK(g_assetManager);
-    runStyleTransfer(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::WeightAccessMethod::CONSTANTS, true, true, useFineTuned, innerLoops);
+    runStyleTransfer(dumpResults, false, snn::MRTMode::DOUBLE_PLANE, snn::DEFAULT_WEIGHT_ASSESS_METHOD, true, true, useFineTuned, innerLoops);
     return 0;
 }
 
@@ -679,13 +679,8 @@ JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_conv2dCS32(JNIEn
         weights[1] = RandomMat(outChs);
     }
 
-    std::vector<cv::Mat> inputWeights = std::vector<cv::Mat>(inChs * outChs);
+    std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights = ncnn2Conv2D(weights[0], outChs, inChs, kernel, kernel);
     std::vector<float> inputBias      = std::vector<float>(outChs, 0.0f);
-
-    for (size_t p = 0; p < inputWeights.size(); p++) {
-        inputWeights[p] = cv::Mat(kernel, kernel, CV_32FC1);
-        memcpy((uchar*) inputWeights[p].data, (uchar*) weights[0].data + kernel * kernel * sizeof(float) * p, kernel * kernel * sizeof(float));
-    }
 
     if (bias) {
         const float* ptr = weights[1].channel(0);
@@ -718,7 +713,7 @@ JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_conv2dCS32(JNIEn
     batchNormalization["movingVariance"] = bnVar;
     batchNormalization["beta"]           = bnBeta;
 
-    auto outFile = test.snnConvTestWithLayer(inputMat, inputWeights, inputBias, w, h, inChs, outChs, kernel, dilation, stride, pad, false,
+    auto outFile = test.snnConvTestWithLayer(inputMat, std::move(inputWeights), inputBias, w, h, inChs, outChs, kernel, dilation, stride, pad, false,
         snn::MRTMode::SINGLE_PLANE, useBN, batchNormalization, false, false);
     (void) outFile;
     return 0;
@@ -751,13 +746,8 @@ JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_conv2dCS16(JNIEn
         weights[1] = RandomMat(outChs);
     }
 
-    std::vector<cv::Mat> inputWeights = std::vector<cv::Mat>(inChs * outChs);
+    std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights = ncnn2Conv2D(weights[0], outChs, inChs, kernel, kernel);
     std::vector<float> inputBias      = std::vector<float>(outChs, 0.0f);
-
-    for (size_t p = 0; p < inputWeights.size(); p++) {
-        inputWeights[p] = cv::Mat(kernel, kernel, CV_32FC1);
-        std::memcpy((uchar*) inputWeights[p].data, (uchar*) weights[0].data + kernel * kernel * sizeof(float) * p, kernel * kernel * sizeof(float));
-    }
 
     if (bias) {
         const float* ptr = weights[1].channel(0);
@@ -789,7 +779,7 @@ JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_conv2dCS16(JNIEn
     batchNormalization["movingVariance"] = bnVar;
     batchNormalization["beta"]           = bnBeta;
 
-    auto outFile = test.snnConvTestWithLayer(inputMat, inputWeights, inputBias, w, h, inChs, outChs, kernel, dilation, stride, pad, false,
+    auto outFile = test.snnConvTestWithLayer(inputMat, std::move(inputWeights), inputBias, w, h, inChs, outChs, kernel, dilation, stride, pad, false,
         snn::MRTMode::SINGLE_PLANE, useBN, batchNormalization, false, true);
     (void) outFile;
     return 0;
@@ -822,13 +812,8 @@ JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_conv2dVK32(JNIEn
         weights[1] = RandomMat(outChs);
     }
 
-    std::vector<cv::Mat> inputWeights = std::vector<cv::Mat>(inChs * outChs);
+    std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights = ncnn2Conv2D(weights[0], outChs, inChs, kernel, kernel);
     std::vector<float> inputBias      = std::vector<float>(outChs, 0.0f);
-
-    for (size_t p = 0; p < inputWeights.size(); p++) {
-        inputWeights[p] = cv::Mat(kernel, kernel, CV_32FC1);
-        std::memcpy((uchar*) inputWeights[p].data, (uchar*) weights[0].data + kernel * kernel * sizeof(float) * p, kernel * kernel * sizeof(float));
-    }
 
     if (bias) {
         const float* ptr = weights[1].channel(0);
@@ -860,7 +845,7 @@ JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_conv2dVK32(JNIEn
     batchNormalization["movingVariance"] = bnVar;
     batchNormalization["beta"]           = bnBeta;
 
-    auto outFile = test.snnConvTestWithLayer(inputMat, inputWeights, inputBias, w, h, inChs, outChs, kernel, dilation, stride, pad, false,
+    auto outFile = test.snnConvTestWithLayer(inputMat, std::move(inputWeights), inputBias, w, h, inChs, outChs, kernel, dilation, stride, pad, false,
         snn::MRTMode::SINGLE_PLANE, useBN, batchNormalization, false, false);
     return 0;
 }
@@ -892,13 +877,8 @@ JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_conv2dVK16(JNIEn
         weights[1] = RandomMat(outChs);
     }
 
-    std::vector<cv::Mat> inputWeights = std::vector<cv::Mat>(inChs * outChs);
+    std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights = ncnn2Conv2D(weights[0], outChs, inChs, kernel, kernel);
     std::vector<float> inputBias      = std::vector<float>(outChs, 0.0f);
-
-    for (size_t p = 0; p < inputWeights.size(); p++) {
-        inputWeights[p] = cv::Mat(kernel, kernel, CV_32FC1);
-        std::memcpy((uchar*) inputWeights[p].data, (uchar*) weights[0].data + kernel * kernel * sizeof(float) * p, kernel * kernel * sizeof(float));
-    }
 
     if (bias) {
         const float* ptr = weights[1].channel(0);
@@ -930,7 +910,7 @@ JNIEXPORT int JNICALL Java_com_oppo_seattle_snndemo_NativeTests_conv2dVK16(JNIEn
     batchNormalization["movingVariance"] = bnVar;
     batchNormalization["beta"]           = bnBeta;
 
-    auto outFile = test.snnConvTestWithLayer(inputMat, inputWeights, inputBias, w, h, inChs, outChs, kernel, dilation, stride, pad, false,
+    auto outFile = test.snnConvTestWithLayer(inputMat, std::move(inputWeights), inputBias, w, h, inChs, outChs, kernel, dilation, stride, pad, false,
         snn::MRTMode::SINGLE_PLANE, useBN, batchNormalization, false, true);
     (void) outFile;
     return 0;

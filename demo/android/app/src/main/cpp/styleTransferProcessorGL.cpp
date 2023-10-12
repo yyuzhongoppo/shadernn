@@ -142,10 +142,9 @@ void StyleTransferProcessorGL::submit(Workload& workload) {
         auto inputTex = InferenceGraph::IODesc {options.preferrHalfPrecision ? ColorFormat::RGBA16F : ColorFormat::RGBA32F,
                                                 modelDims.width, modelDims.height, 1, 4};
         options.desiredInput.push_back(inputTex);
-        options.desiredOutputFormat  = options.preferrHalfPrecision ? snn::ColorFormat::RGBA16F : snn::ColorFormat::RGBA32F;
         options.compute              = compute;
         options.mrtMode              = snn::MRTMode::SINGLE_PLANE;
-        options.weightMode           = snn::WeightAccessMethod::CONSTANTS;
+        options.weightMode           = snn::DEFAULT_WEIGHT_ASSESS_METHOD;
         auto dp                      = snn::dp::loadFromJsonModel(modelFileName, false, options.mrtMode, options.weightMode, options.preferrHalfPrecision);
         MixedInferenceCore::CreationParameters cp;
         (InferenceGraph &&) cp = snn::dp::generateInferenceGraph(dp[0], options);

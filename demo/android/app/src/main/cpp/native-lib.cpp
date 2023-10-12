@@ -167,6 +167,11 @@ std::pair<InferenceEngine::AlgorithmConfig, ModelType> toNativeAlgorithmConfig(J
         algo.precision = Precision::FP32;
     }
 
+    jmethodID isChanged = env->GetMethodID(algoCfgClass, "isChanged", "()Z");
+    if (env->CallBooleanMethod(jalgo, isChanged)) {
+        algo.changeStatus = InferenceEngine::AlgorithmConfig::CHANGE;
+    }
+
     std::pair<InferenceEngine::AlgorithmConfig, ModelType> retVal = {algo, modelType};
 
     return retVal;
@@ -174,8 +179,8 @@ std::pair<InferenceEngine::AlgorithmConfig, ModelType> toNativeAlgorithmConfig(J
 
 // -----------------------------------------------------------------------------
 //
-extern "C" JNIEXPORT void JNICALL Java_com_oppo_seattle_snndemo_NativeLibrary_init(JNIEnv* env, jobject, jobject java_am, jstring /*internalStorageDir*/,
-                                                                                   jstring /*externalStorageDir*/) {
+extern "C" JNIEXPORT void JNICALL Java_com_oppo_seattle_snndemo_NativeLibrary_init(JNIEnv* env, jclass, jobject java_am,
+                                                     jstring /*internalStorageDir*/, jstring /*externalStorageDir*/) {
     // remember the pointer to the asset manager
     SNN_CHK(env);
     SNN_CHK(java_am);
@@ -196,7 +201,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_oppo_seattle_snndemo_NativeLibrary_in
 // -----------------------------------------------------------------------------
 //
 static int vizW = 0, vizH = 0;
-extern "C" JNIEXPORT void JNICALL Java_com_oppo_seattle_snndemo_NativeLibrary_resize(JNIEnv*, jobject, int w, int h) {
+extern "C" JNIEXPORT void JNICALL Java_com_oppo_seattle_snndemo_NativeLibrary_resize(JNIEnv*, jclass, int w, int h) {
     if (g_mainLoop) {
         g_mainLoop->resize(w, h);
     } else {
@@ -245,6 +250,11 @@ Java_com_oppo_seattle_snndemo_NativeLibrary_drawGL(JNIEnv* env, jclass, jobject 
 
     snn::renderOutput(rp);
 
+    if (rp.algorithm.changeStatus == InferenceEngine::AlgorithmConfig::CHANGE) {
+        jclass algoCfgClass = env->FindClass("com/oppo/seattle/snndemo/AlgorithmConfig");
+        jmethodID setChangeProcessed = env->GetMethodID(algoCfgClass, "setChangeProcessed", "()V");
+        env->CallVoidMethod(jAlgo, setChangeProcessed);
+    }
     if (rp.modelType == ModelType::CLASSIFICATION && jAlgo != nullptr) {
         jclass cls = env->GetObjectClass(jAlgo);
         env->SetIntField(jAlgo, env->GetFieldID(cls, "classifierIndex", "I"), rp.modelOutput.classifierOutput);
@@ -276,6 +286,11 @@ Java_com_oppo_seattle_snndemo_NativeLibrary_drawVulkan(JNIEnv* env, jclass, jobj
 
     g_VulkanApp->update();
 
+    if (rp.algorithm.changeStatus == InferenceEngine::AlgorithmConfig::CHANGE) {
+        jclass algoCfgClass = env->FindClass("com/oppo/seattle/snndemo/AlgorithmConfig");
+        jmethodID setChangeProcessed = env->GetMethodID(algoCfgClass, "setChangeProcessed", "()V");
+        env->CallVoidMethod(jAlgo, setChangeProcessed);
+    }
     if (rp.modelType == ModelType::CLASSIFICATION && jAlgo != nullptr) {
         jclass cls = env->GetObjectClass(jAlgo);
         SNN_LOGD("Classifier output = %d", rp.modelOutput.classifierOutput);
@@ -286,7 +301,7 @@ Java_com_oppo_seattle_snndemo_NativeLibrary_drawVulkan(JNIEnv* env, jclass, jobj
 
 // -----------------------------------------------------------------------------
 //
-extern "C" JNIEXPORT void JNICALL Java_com_oppo_seattle_snndemo_NativeLibrary_destroy(JNIEnv*, jobject) {
+extern "C" JNIEXPORT void JNICALL Java_com_oppo_seattle_snndemo_NativeLibrary_destroy(JNIEnv*, jclass) {
     g_mainLoop.reset();
     g_frameProvider.reset();
 #ifdef SUPPORT_VULKAN

@@ -16,6 +16,7 @@
 #include "snn/snn.h"
 #include "snn/imageTexture.h"
 #include "snn/utils.h"
+#include "conv2dSupport.h"
 #include <map>
 #include <string>
 #include <vector>
@@ -53,7 +54,7 @@ public:
     void testImageTexture();
     void testImageTexture(cv::Mat& inputMat, int width, int height, int inChannels);
 
-    std::string snnConvTestWithLayer(cv::Mat& inputMat, std::vector<cv::Mat>& inputWeights, std::vector<float>& inputBias, int w, int h, int c, int outch,
+    std::string snnConvTestWithLayer(cv::Mat& inputMat, std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights, std::vector<float>& inputBias, int w, int h, int c, int outch,
                                      int kernel, int dilation, int stride, int pad, bool useCompute, snn::MRTMode mrtMode, bool useBatchNorm,
                                      std::map<std::string, std::vector<float>>& batchNormalization, bool dumpOutput = true, bool fp16 = false);
 
@@ -74,17 +75,17 @@ public:
     std::string snnConcateTestWithLayer(cv::Mat& inputMat, int width, int height, int inChannels, int kernel, int stride, const std::string& activation,
         bool dumpOutput = true);
 
-    std::string snnDepthConvTestWithLayer(cv::Mat& inputMat, std::vector<cv::Mat>& inputWeights, std::vector<float>& inputBias, int w, int h, int c, int outch,
+    std::string snnDepthConvTestWithLayer(cv::Mat& inputMat, std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights, std::vector<float>& inputBias, int w, int h, int c, int outch,
                                           int kernel, int dilation, int stride, int pad, int bias, bool useCompute, bool useBatchNorm,
                                           std::map<std::string, std::vector<float>>& batchNormalization, bool dumpOutput = true);
 
-    std::string snnInstanceNormTestWithLayer(cv::Mat& inputMat, std::vector<cv::Mat>& inputWeights, std::vector<float>& inputBias, int w, int h, int c,
+    std::string snnInstanceNormTestWithLayer(cv::Mat& inputMat, std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights, std::vector<float>& inputBias, int w, int h, int c,
                                              int outch, int kernel, int dilation, int stride, int pad, int bias, bool useCompute, bool useBatchNorm,
                                              std::map<std::string, std::vector<float>>& batchNormalization, bool dumpOutput = true);
 
     std::string snnPadTestWithLayer(cv::Mat& inputMat, int w, int h, int channels, int kernel, int stride, int type, float value, bool dumpOutput = true);
 
-    std::string snnBatchNormTestWithLayer(cv::Mat& inputMat, std::vector<cv::Mat>& inputWeights, std::vector<float>& inputBias, int w, int h, int c, int outch,
+    std::string snnBatchNormTestWithLayer(cv::Mat& inputMat, std::unique_ptr<snn::Conv2DSupport::WeightsTensor> inputWeights, std::vector<float>& inputBias, int w, int h, int c, int outch,
                                           int kernel, int dilation, int stride, int pad, int bias, bool useCompute, bool useBatchNorm,
                                           std::map<std::string, std::vector<float>>& batchNormalization, bool dumpOutput = true);
 

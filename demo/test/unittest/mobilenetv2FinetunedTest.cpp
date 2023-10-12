@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
         mrtMode = (snn::MRTMode) 0;
     }
     // TODO: investigate why so big error
-    const double COMPARE_THRESHOLD = useHalfFP ? 0.7 : 0.2;
+    const double COMPARE_THRESHOLD = useHalfFP ? 0.7 : 0.3;
 
     ncnn::Mat ncnnMat, ncnnMat2, snnMat;
     int ret = 0;

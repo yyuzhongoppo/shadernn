@@ -33,9 +33,7 @@ void SpatialDenoiserGL::submit(Workload& workload) {
     }
 
     const auto& inputDesc = workload.inputs[0]->desc();
-    const auto& outDesc   = workload.output->desc();
     SNN_ASSERT(inputDesc.device == Device::GPU);
-    SNN_ASSERT(outDesc.device == Device::GPU);
 
     // we have to delay creating ic2 because we need to know the frame size.
     if (!ic2) {
@@ -44,11 +42,10 @@ void SpatialDenoiserGL::submit(Workload& workload) {
                                                 inputDesc.width, inputDesc.height, 1, 4};
         options.desiredInput.push_back(inputTex);
 
-        options.desiredOutputFormat  = outDesc.format;
         options.preferrHalfPrecision = precision == Precision::FP16;
         options.compute              = compute;
         options.mrtMode              = snn::MRTMode::SINGLE_PLANE;
-        options.weightMode           = snn::WeightAccessMethod::CONSTANTS;
+        options.weightMode           = snn::WeightAccessMethod::TEXTURES;
         auto dp                      = snn::dp::loadFromJsonModel(modelFileName, false, options.mrtMode, options.weightMode, options.preferrHalfPrecision);
         MixedInferenceCore::CreationParameters cp;
         (InferenceGraph &&) cp = snn::dp::generateInferenceGraph(dp[0], options);

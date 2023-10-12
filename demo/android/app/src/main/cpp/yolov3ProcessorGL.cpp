@@ -122,11 +122,11 @@ void Yolov3ProcessorGL::submit(Workload& workload) {
         auto inputTex = InferenceGraph::IODesc {inputDesc.format,
                                                 modelDims.width, modelDims.height, 1, 4};
         options.desiredInput.push_back(inputTex);
-        options.desiredOutputFormat  = inputDesc.format;
+        options.compute              = compute;
         options.preferrHalfPrecision = precision == Precision::FP16;
 
         options.mrtMode    = snn::MRTMode::SINGLE_PLANE;
-        options.weightMode = snn::WeightAccessMethod::CONSTANTS;
+        options.weightMode = snn::DEFAULT_WEIGHT_ASSESS_METHOD;
 
         auto dp = snn::dp::loadFromJsonModel(modelFileName, false, options.mrtMode, options.weightMode, options.preferrHalfPrecision);
 
@@ -140,7 +140,6 @@ void Yolov3ProcessorGL::submit(Workload& workload) {
     SNN_ASSERT(inputDesc.device == Device::GPU);
 
     MixedInferenceCore::RunParameters rp = {};
-    rp.inputMatrix                       = workload.cpuInputs;
     rp.modelOutput.modelType             = ModelType::DETECTION;
 
     snn::ImageTextureGLArray inputTexs;

@@ -26,8 +26,8 @@
 #endif
 #include "CLI/CLI.hpp"
 
-#define NCNN_MODEL_NAME "yolov3-tiny_dummy"
-#define SNN_MODEL_NAME "yolov3_tiny_bb_layers.json"
+#define NCNN_MODEL_NAME "yolov3-tiny_bb"
+#define SNN_MODEL_NAME  "yolov3_tiny_bb_layers.json"
 #define TEST_IMAGE      "coco1_416.png"
 
 #include "yolov3TinyTestCommon.cpp"

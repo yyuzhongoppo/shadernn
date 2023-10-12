@@ -24,7 +24,7 @@
 #endif
 #include "CLI/CLI.hpp"
 
-#define NCNN_MODEL_NAME   "mobilenetv2_keras_dummy"
+#define NCNN_MODEL_NAME   "mobilenetv2_keras"
 #define SNN_MODEL_NAME    "mobilenetv2_keras_layers.json"
 #define TEST_IMAGE        "ant.png"
 

@@ -32,8 +32,6 @@ void StyleTransferProcessorVulkan::init(const FrameDims& inputDims_, const Frame
                                             modelDims.width, modelDims.height, 1, 4};
     options.desiredInput.push_back(inputTex);
 
-    options.desiredOutputFormat  = options.preferrHalfPrecision ? snn::ColorFormat::RGBA16F : snn::ColorFormat::RGBA32F;
-
     genericModelProcessorVulkan.reset(new GenericModelProcessorVulkan(*this,
         outputDims_,
         options,

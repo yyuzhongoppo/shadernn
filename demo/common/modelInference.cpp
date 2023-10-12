@@ -110,14 +110,16 @@ int runResnet18(bool dumpOutputs, bool useCompute, snn::MRTMode mrtMode, snn::We
 
     std::string modelFileName;
     if (useFinetuned) {
-        modelFileName = "Resnet18/resnet18_cifar10.json";
+        modelFileName = "Resnet18/resnet18_cifar10_layers.json";
     } else {
         modelFileName = "Resnet18/resnet18_cifar10_0223_layers.json";
     }
 
     std::vector<std::pair<std::string, std::vector<uint32_t>>> inputList;
+#if 0
+    // Model input dimension can be read from JSON file
     inputList.push_back({"input", std::vector<uint32_t> {32, 32, 1, 1}});
-
+#endif
     ip->initialize({modelFileName, inputList, mrtMode, weightMode, useHalfFP, dumpOutputs, useCompute, useVulkan, snn::ModelType::CLASSIFICATION, innerLoops});
 
     for (int i = 0; i < outerLoops; i++) {
@@ -158,7 +160,11 @@ int runMobilenetV2(bool dumpOutputs, bool useCompute, snn::MRTMode mrtMode, snn:
     }
 
     std::vector<std::pair<std::string, std::vector<uint32_t>>> inputList;
+#if 0
+    // Model input dimension can be read from JSON file
+
     inputList.push_back({"input", std::vector<uint32_t> {224, 224, 1, 1}});
+#endif
 
     ip->initialize({modelFileName, inputList, mrtMode, weightMode, useHalfFP, dumpOutputs, useCompute, useVulkan, snn::ModelType::CLASSIFICATION, innerLoops});
 
@@ -173,7 +179,7 @@ int runYolov3Tiny(bool dumpOutputs, bool useCompute, snn::MRTMode mrtMode, snn::
 
     std::string modelFileName;
     if (useFinetuned) {
-        modelFileName = "Yolov3-tiny/yolov3-tiny_finetuned.json";
+        modelFileName = "Yolov3-tiny/yolov3-tiny_layers.json";
     } else {
         // This model misses the final layer and does not output any detections !!!
         modelFileName = "Yolov3-tiny/yolov3_tiny_bb_layers.json";
@@ -192,12 +198,13 @@ int runUNet(bool dumpOutputs, bool useCompute, snn::MRTMode mrtMode, snn::Weight
         bool useHalfFP, bool useVulkan, bool useFinetuned, uint32_t innerLoops) {
     CHECK_PLATFORM_SUPPORT(useVulkan)
     auto ip = snn::InferenceProcessor::create(useVulkan);
+    snn::GpuContext* context = ip->getContext();
 
     std::string modelFileName;
     if (useFinetuned) {
         modelFileName = "U-Net/unet.json";
     } else {
-        modelFileName = "U-Net/unet_layers.json";
+        modelFileName = "U-Net/unet_pretrained_layers.json";
     }
 
     std::vector<std::pair<std::string, std::vector<uint32_t>>> inputList;
@@ -205,7 +212,12 @@ int runUNet(bool dumpOutputs, bool useCompute, snn::MRTMode mrtMode, snn::Weight
 
     ip->initialize({modelFileName, inputList, mrtMode, weightMode, useHalfFP, dumpOutputs, useCompute, useVulkan, snn::ModelType::OTHER, innerLoops});
 
-    processModel(ip->getContext(), snn::formatString("%sassets/images/test_image_unet_gray.png", ASSETS_DIR), useHalfFP, 127.5f, 1 / 127.5f, ip);
+    processModel(context, snn::formatString("%sassets/images/test_image_unet_gray.png", ASSETS_DIR), useHalfFP, 127.5f, 1 / 127.5f, ip);
+    
+    ip.reset();
+    delete context;
+
+    SNN_LOGV("runUNet() finished");
     return 0;
 }
 
@@ -229,6 +241,7 @@ int runESPCN(bool dumpOutputs, bool useCompute, snn::MRTMode mrtMode, snn::Weigh
         bool useHalfFP, bool useVulkan, bool /*useFinetuned*/, uint32_t innerLoops) {
     CHECK_PLATFORM_SUPPORT(useVulkan)
     auto ip = snn::InferenceProcessor::create(useVulkan);
+    snn::GpuContext* context = ip->getContext();
 
     std::string modelFileName = "ESPCN/ESPCN_2X_16_16_4.json";
 
@@ -237,6 +250,11 @@ int runESPCN(bool dumpOutputs, bool useCompute, snn::MRTMode mrtMode, snn::Weigh
 
     ip->initialize({modelFileName, inputList, mrtMode, weightMode, useHalfFP, dumpOutputs, useCompute, useVulkan, snn::ModelType::OTHER, innerLoops});
 
-    processModel(ip->getContext(), snn::formatString("%sassets/images/bright_night_view_street_1080x1920.jpg", ASSETS_DIR), useHalfFP, 127.5, 1 / 127.5, ip);
+    processModel(context, snn::formatString("%sassets/images/bright_night_view_street_1080x1920.jpg", ASSETS_DIR), useHalfFP, 127.5, 1 / 127.5, ip);
+
+    ip.reset();
+    delete context;
+    
+    SNN_LOGV("runESPCN() finished");
     return 0;
 }
